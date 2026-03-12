@@ -1,10 +1,11 @@
 import { Router } from 'express';
 import { prisma } from '../index';
+import { authenticate, requireAdmin, AuthRequest } from '../middleware/auth';
 
 const router = Router();
 
 // Get all players
-router.get('/', async (_req, res) => {
+router.get('/', authenticate, async (_req, res) => {
   const players = await prisma.player.findMany({
     orderBy: { name: 'asc' },
     select: { id: true, name: true, email: true, isAdmin: true },
@@ -12,8 +13,8 @@ router.get('/', async (_req, res) => {
   res.json(players);
 });
 
-// Create player
-router.post('/', async (req, res) => {
+// Create player (admin only)
+router.post('/', authenticate, requireAdmin, async (req: AuthRequest, res) => {
   try {
     const { name, email } = req.body;
 

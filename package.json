@@ -11,7 +11,7 @@
     "db:generate": "dotenv -e .env -- pnpm --filter poker-tournament-server db:generate",
     "db:seed": "dotenv -e .env -- pnpm --filter poker-tournament-server db:seed",
     "db:migrate": "dotenv -e .env -- pnpm --filter poker-tournament-server db:migrate",
-    "db:reset": "dotenv -e .env -- pnpm --filter poker-tournament-server prisma migrate reset --force"
+    "db:reset": "dotenv -e .env -- pnpm --filter poker-tournament-server db:reset"
   },
   "devDependencies": {
     "dotenv-cli": "11.0.0"

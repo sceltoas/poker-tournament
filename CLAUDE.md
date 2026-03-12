@@ -23,7 +23,7 @@ pnpm dev                           # starts server (3001) + client (5173)
 # App: localhost:5173 | Mailhog: localhost:8025 | API: localhost:3001
 ```
 
-Admin accounts in seed: `ken.gullaksen@scelto.no`, `erik.larsen@scelto.no`
+Admin account in seed: `ken.gullaksen@scelto.no`
 
 ## Architecture
 

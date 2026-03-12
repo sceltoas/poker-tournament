@@ -124,7 +124,7 @@ export default function DashboardPage() {
   const handleToggleAfk = async () => {
     if (!activeTournament) return;
     try {
-      const result = await apiClient.post(`/api/tournaments/${activeTournament.id}/afk/${player!.id}`);
+      const result = await apiClient.post(`/api/tournaments/${activeTournament.id}/afk`);
       setNotification(`You are now ${result.status === 'AFK' ? 'AFK' : 'back'}`);
     } catch (err: any) {
       setNotification(`Error: ${err.message}`);
@@ -134,7 +134,7 @@ export default function DashboardPage() {
   const handleBeerToastClick = async () => {
     if (!activeTournament) return;
     try {
-      await apiClient.post(`/api/tournaments/${activeTournament.id}/toast/${player!.id}`);
+      await apiClient.post(`/api/tournaments/${activeTournament.id}/toast`);
     } catch (err: any) {
       setNotification(`Error: ${err.message}`);
     }

@@ -1,18 +1,19 @@
 import { Router } from 'express';
 import { prisma } from '../index';
+import { authenticate, AuthRequest } from '../middleware/auth';
 
 const router = Router();
 
 // Save push subscription
-router.post('/subscribe', async (req, res) => {
+router.post('/subscribe', authenticate, async (req: AuthRequest, res) => {
   try {
-    const { endpoint, keys, playerId } = req.body;
+    const { endpoint, keys } = req.body;
 
     await prisma.pushSubscription.upsert({
       where: { endpoint },
-      update: { p256dh: keys.p256dh, auth: keys.auth, playerId },
+      update: { p256dh: keys.p256dh, auth: keys.auth, playerId: req.playerId! },
       create: {
-        playerId,
+        playerId: req.playerId!,
         endpoint,
         p256dh: keys.p256dh,
         auth: keys.auth,
@@ -27,7 +28,7 @@ router.post('/subscribe', async (req, res) => {
 });
 
 // Remove push subscription
-router.post('/unsubscribe', async (req, res) => {
+router.post('/unsubscribe', authenticate, async (req: AuthRequest, res) => {
   try {
     const { endpoint } = req.body;
     await prisma.pushSubscription.deleteMany({ where: { endpoint } });

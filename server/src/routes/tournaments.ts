@@ -1,6 +1,7 @@
-import { Router, Request } from 'express';
+import { Router } from 'express';
 import { Server as SocketIOServer } from 'socket.io';
 import { prisma } from '../index';
+import { authenticate, requireAdmin, AuthRequest } from '../middleware/auth';
 import { sendMagicLink, sendEliminationNotification } from '../services/email';
 import { sendPushToTournamentPlayers } from '../services/pushNotification';
 import {
@@ -54,11 +55,9 @@ async function checkMergeSuggestions(io: SocketIOServer, tournamentId: string) {
 
   if (activeTables.length <= 1) return;
 
-  // Find tables below threshold
   const lowTables = activeTables.filter((t) => t.players.length < MERGE_THRESHOLD);
 
   if (lowTables.length > 0) {
-    // Suggest merging the smallest table into the one with most room
     const smallest = lowTables.sort((a, b) => a.players.length - b.players.length)[0];
     const targetCandidates = activeTables
       .filter((t) => t.id !== smallest.id)
@@ -83,7 +82,6 @@ async function checkTournamentEnd(io: SocketIOServer, tournamentId: string) {
   });
 
   if (activePlayers <= 1) {
-    // Last player standing wins
     const winner = await prisma.tournamentPlayer.findFirst({
       where: { tournamentId, status: { in: ['ACTIVE', 'AFK'] } },
       include: { player: true },
@@ -109,7 +107,7 @@ async function checkTournamentEnd(io: SocketIOServer, tournamentId: string) {
 }
 
 // ─── LIST tournaments ───────────────────────────────────────────────
-router.get('/', async (_req, res) => {
+router.get('/', authenticate, async (_req, res) => {
   const tournaments = await prisma.tournament.findMany({
     orderBy: { createdAt: 'desc' },
     include: {
@@ -120,14 +118,14 @@ router.get('/', async (_req, res) => {
 });
 
 // ─── GET single tournament (full state) ─────────────────────────────
-router.get('/:id', async (req, res) => {
+router.get('/:id', authenticate, async (req, res) => {
   const tournament = await getFullTournament(req.params.id);
   if (!tournament) return res.status(404).json({ error: 'Tournament not found' });
   res.json(tournament);
 });
 
-// ─── CREATE tournament ──────────────────────────────────────────────
-router.post('/', async (req, res) => {
+// ─── CREATE tournament (admin) ──────────────────────────────────────
+router.post('/', authenticate, requireAdmin, async (req: AuthRequest, res) => {
   try {
     const { name, playerIds } = req.body as { name: string; playerIds: string[] };
 
@@ -141,11 +139,9 @@ router.post('/', async (req, res) => {
 
     const tournament = await prisma.tournament.create({ data: { name } });
 
-    // Calculate table layout
     const numTables = Math.ceil(playerIds.length / 8);
     const playersPerTable = Math.ceil(playerIds.length / numTables);
 
-    // Create tables
     const tables = [];
     for (let i = 0; i < numTables; i++) {
       const table = await prisma.tournamentTable.create({
@@ -154,7 +150,6 @@ router.post('/', async (req, res) => {
       tables.push(table);
     }
 
-    // Assign players to tables with shuffled seating
     const shuffled = [...playerIds].sort(() => Math.random() - 0.5);
 
     for (let i = 0; i < shuffled.length; i++) {
@@ -171,7 +166,6 @@ router.post('/', async (req, res) => {
       });
     }
 
-    // Send magic links to all players
     const players = await prisma.player.findMany({
       where: { id: { in: playerIds } },
     });
@@ -182,7 +176,7 @@ router.post('/', async (req, res) => {
         data: {
           playerId: player.id,
           token,
-          expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 7 days
+          expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
         },
       });
       await sendMagicLink(player.email, player.name, token, name);
@@ -196,8 +190,8 @@ router.post('/', async (req, res) => {
   }
 });
 
-// ─── START tournament ───────────────────────────────────────────────
-router.post('/:id/start', async (req, res) => {
+// ─── START tournament (admin) ───────────────────────────────────────
+router.post('/:id/start', authenticate, requireAdmin, async (req, res) => {
   const io: SocketIOServer = req.app.get('io');
   try {
     await prisma.tournament.update({
@@ -214,11 +208,15 @@ router.post('/:id/start', async (req, res) => {
 });
 
 // ─── ELIMINATE player ───────────────────────────────────────────────
-router.post('/:id/eliminate/:playerId', async (req, res) => {
+router.post('/:id/eliminate/:playerId', authenticate, async (req: AuthRequest, res) => {
   const io: SocketIOServer = req.app.get('io');
   const { id: tournamentId, playerId } = req.params;
 
   try {
+    if (!req.isAdmin && req.playerId !== playerId) {
+      return res.status(403).json({ error: 'Not authorized' });
+    }
+
     const tp = await prisma.tournamentPlayer.findUnique({
       where: { tournamentId_playerId: { tournamentId, playerId } },
       include: { player: true },
@@ -228,12 +226,11 @@ router.post('/:id/eliminate/:playerId', async (req, res) => {
       return res.status(400).json({ error: 'Player not active in tournament' });
     }
 
-    // Calculate finish position
     const activePlayers = await prisma.tournamentPlayer.count({
       where: { tournamentId, status: { in: ['ACTIVE', 'AFK'] } },
     });
 
-    const finishPosition = activePlayers; // e.g., if 10 active, eliminated player gets #10
+    const finishPosition = activePlayers;
 
     await prisma.tournamentPlayer.update({
       where: { id: tp.id },
@@ -244,7 +241,6 @@ router.post('/:id/eliminate/:playerId', async (req, res) => {
       },
     });
 
-    // Emit elimination event
     emitPlayerEliminated(io, tournamentId, {
       playerId,
       playerName: tp.player.name,
@@ -253,14 +249,12 @@ router.post('/:id/eliminate/:playerId', async (req, res) => {
       tableId: tp.tableId,
     });
 
-    // Send push notifications (web)
     await sendPushToTournamentPlayers(tournamentId, {
       title: 'Player Eliminated!',
       body: `${tp.player.name} has been knocked out (#${finishPosition})`,
       tag: `elimination-${playerId}`,
     }, playerId);
 
-    // Send email notifications to remaining active players
     const remainingPlayers = await prisma.tournamentPlayer.findMany({
       where: {
         tournamentId,
@@ -283,14 +277,10 @@ router.post('/:id/eliminate/:playerId', async (req, res) => {
       ).catch(console.error);
     }
 
-    // Check if tournament should end
     const ended = await checkTournamentEnd(io, tournamentId);
 
     if (!ended) {
-      // Check for merge suggestions
       await checkMergeSuggestions(io, tournamentId);
-
-      // Send updated tournament state
       const fullTournament = await getFullTournament(tournamentId);
       emitTournamentUpdate(io, tournamentId, fullTournament);
     }
@@ -302,8 +292,8 @@ router.post('/:id/eliminate/:playerId', async (req, res) => {
   }
 });
 
-// ─── MERGE tables ───────────────────────────────────────────────────
-router.post('/:id/merge', async (req, res) => {
+// ─── MERGE tables (admin) ───────────────────────────────────────────
+router.post('/:id/merge', authenticate, requireAdmin, async (req: AuthRequest, res) => {
   const io: SocketIOServer = req.app.get('io');
   const { id: tournamentId } = req.params;
   const { fromTableId, toTableId } = req.body;
@@ -323,7 +313,6 @@ router.post('/:id/merge', async (req, res) => {
       return res.status(404).json({ error: 'Table not found' });
     }
 
-    // Find available seats at destination (check ALL players, not just active)
     const existingSeats = new Set(toTable.players.map((p) => p.seatNumber));
     const availableSeats: number[] = [];
     for (let s = 1; s <= 8; s++) {
@@ -334,19 +323,16 @@ router.post('/:id/merge', async (req, res) => {
       return res.status(400).json({ error: 'Not enough seats at destination table' });
     }
 
-    // Detach all players from source table first (avoids unique constraint issues)
     await prisma.tournamentPlayer.updateMany({
       where: { tableId: fromTableId },
       data: { tableId: null },
     });
 
-    // Mark the from-table as inactive
     await prisma.tournamentTable.update({
       where: { id: fromTableId },
       data: { isActive: false },
     });
 
-    // Move active/AFK players to destination with new seats
     for (let i = 0; i < fromTable.players.length; i++) {
       await prisma.tournamentPlayer.update({
         where: { id: fromTable.players[i].id },
@@ -372,9 +358,10 @@ router.post('/:id/merge', async (req, res) => {
 });
 
 // ─── TOGGLE AFK status ──────────────────────────────────────────────
-router.post('/:id/afk/:playerId', async (req, res) => {
+router.post('/:id/afk', authenticate, async (req: AuthRequest, res) => {
   const io: SocketIOServer = req.app.get('io');
-  const { id: tournamentId, playerId } = req.params;
+  const { id: tournamentId } = req.params;
+  const playerId = req.playerId!;
 
   try {
     const tp = await prisma.tournamentPlayer.findUnique({
@@ -409,24 +396,23 @@ router.post('/:id/afk/:playerId', async (req, res) => {
 });
 
 // ─── BEER TOAST ─────────────────────────────────────────────────────
-router.post('/:id/toast/:playerId', async (req, res) => {
+router.post('/:id/toast', authenticate, async (req: AuthRequest, res) => {
   const io: SocketIOServer = req.app.get('io');
-  const { id: tournamentId, playerId } = req.params;
+  const { id: tournamentId } = req.params;
 
   try {
-    const player = await prisma.player.findUnique({ where: { id: playerId } });
+    const player = await prisma.player.findUnique({ where: { id: req.playerId! } });
 
     emitBeerToast(io, tournamentId, {
-      playerId,
+      playerId: req.playerId,
       playerName: player?.name || 'Someone',
     });
 
-    // Web push for beer toast (not email)
     await sendPushToTournamentPlayers(tournamentId, {
       title: 'Cheers!',
       body: `${player?.name} raised a toast!`,
       tag: 'beer-toast',
-    }, playerId);
+    }, req.playerId);
 
     res.json({ message: 'Cheers!' });
   } catch (error) {
@@ -435,7 +421,7 @@ router.post('/:id/toast/:playerId', async (req, res) => {
 });
 
 // ─── GET final results ──────────────────────────────────────────────
-router.get('/:id/results', async (req, res) => {
+router.get('/:id/results', authenticate, async (req, res) => {
   const tournament = await prisma.tournament.findUnique({
     where: { id: req.params.id },
     include: {

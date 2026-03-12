@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { v4 as uuid } from 'uuid';
 import { prisma } from '../index';
-import { generateToken } from '../middleware/auth';
+import { generateToken, authenticate, AuthRequest } from '../middleware/auth';
 import { sendMagicLink } from '../services/email';
 
 const router = Router();
@@ -92,34 +92,19 @@ router.get('/verify', async (req, res) => {
 });
 
 // Get current player
-router.get('/me', async (req, res) => {
-  const authHeader = req.headers.authorization;
-  if (!authHeader?.startsWith('Bearer ')) {
-    return res.status(401).json({ error: 'No token' });
-  }
+router.get('/me', authenticate, async (req: AuthRequest, res) => {
+  const player = await prisma.player.findUnique({
+    where: { id: req.playerId! },
+  });
 
-  try {
-    const jwt = await import('jsonwebtoken');
-    const payload = jwt.verify(
-      authHeader.substring(7),
-      process.env.JWT_SECRET || 'dev-jwt-secret-change-in-prod'
-    ) as { playerId: string };
+  if (!player) return res.status(404).json({ error: 'Player not found' });
 
-    const player = await prisma.player.findUnique({
-      where: { id: payload.playerId },
-    });
-
-    if (!player) return res.status(404).json({ error: 'Player not found' });
-
-    res.json({
-      id: player.id,
-      name: player.name,
-      email: player.email,
-      isAdmin: player.isAdmin,
-    });
-  } catch {
-    res.status(401).json({ error: 'Invalid token' });
-  }
+  res.json({
+    id: player.id,
+    name: player.name,
+    email: player.email,
+    isAdmin: player.isAdmin,
+  });
 });
 
 export default router;
