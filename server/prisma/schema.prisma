@@ -1,0 +1,93 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum TournamentStatus {
+  REGISTRATION
+  ACTIVE
+  FINISHED
+}
+
+enum PlayerStatus {
+  ACTIVE
+  ELIMINATED
+  AFK
+}
+
+model Player {
+  id        String   @id @default(uuid())
+  name      String
+  email     String   @unique
+  isAdmin   Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  tournamentPlayers TournamentPlayer[]
+  pushSubscriptions PushSubscription[]
+  magicLinks        MagicLink[]
+}
+
+model Tournament {
+  id        String           @id @default(uuid())
+  name      String
+  status    TournamentStatus @default(REGISTRATION)
+  createdAt DateTime         @default(now())
+  startedAt DateTime?
+  endedAt   DateTime?
+
+  tables  TournamentTable[]
+  players TournamentPlayer[]
+}
+
+model TournamentTable {
+  id          String  @id @default(uuid())
+  tournament  Tournament @relation(fields: [tournamentId], references: [id], onDelete: Cascade)
+  tournamentId String
+  tableNumber Int
+  isActive    Boolean @default(true)
+
+  players TournamentPlayer[]
+
+  @@unique([tournamentId, tableNumber])
+}
+
+model TournamentPlayer {
+  id             String       @id @default(uuid())
+  tournament     Tournament   @relation(fields: [tournamentId], references: [id], onDelete: Cascade)
+  tournamentId   String
+  player         Player       @relation(fields: [playerId], references: [id], onDelete: Cascade)
+  playerId       String
+  table          TournamentTable? @relation(fields: [tableId], references: [id])
+  tableId        String?
+  seatNumber     Int
+  status         PlayerStatus @default(ACTIVE)
+  eliminatedAt   DateTime?
+  finishPosition Int?
+
+  @@unique([tournamentId, playerId])
+  @@unique([tableId, seatNumber])
+}
+
+model PushSubscription {
+  id        String   @id @default(uuid())
+  player    Player   @relation(fields: [playerId], references: [id], onDelete: Cascade)
+  playerId  String
+  endpoint  String   @unique
+  p256dh    String
+  auth      String
+  createdAt DateTime @default(now())
+}
+
+model MagicLink {
+  id        String   @id @default(uuid())
+  player    Player   @relation(fields: [playerId], references: [id], onDelete: Cascade)
+  playerId  String
+  token     String   @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime @default(now())
+}

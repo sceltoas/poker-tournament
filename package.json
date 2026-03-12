@@ -1,0 +1,19 @@
+{
+  "name": "scelto-poker-tournament",
+  "private": true,
+  "scripts": {
+    "dev": "pnpm --filter poker-tournament-server dev & pnpm --filter poker-tournament-client dev & wait",
+    "dev:server": "pnpm --filter poker-tournament-server dev",
+    "dev:client": "pnpm --filter poker-tournament-client dev",
+    "generate-vapid": "pnpm dlx web-push generate-vapid-keys --json",
+    "docker:up": "docker-compose up -d",
+    "docker:down": "docker-compose down",
+    "db:generate": "dotenv -e .env -- pnpm --filter poker-tournament-server db:generate",
+    "db:seed": "dotenv -e .env -- pnpm --filter poker-tournament-server db:seed",
+    "db:migrate": "dotenv -e .env -- pnpm --filter poker-tournament-server db:migrate",
+    "db:reset": "dotenv -e .env -- pnpm --filter poker-tournament-server prisma migrate reset --force"
+  },
+  "devDependencies": {
+    "dotenv-cli": "11.0.0"
+  }
+}
