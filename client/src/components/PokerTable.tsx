@@ -1,5 +1,6 @@
 import { TournamentTable, TournamentPlayer } from '../types';
 import { X } from 'lucide-react';
+import { useFolk } from '../hooks/useFolk';
 
 interface Props {
   table: TournamentTable;
@@ -26,12 +27,14 @@ function PlayerSeat({
   position,
   isMe,
   isAdmin,
+  avatarUrl,
   onEliminate,
 }: {
   tp: TournamentPlayer;
   position: React.CSSProperties;
   isMe: boolean;
   isAdmin: boolean;
+  avatarUrl?: string;
   onEliminate: (playerId: string) => void;
 }) {
   const isEliminated = tp.status === 'ELIMINATED';
@@ -43,6 +46,7 @@ function PlayerSeat({
       style={{ position: 'absolute', ...position }}
     >
       <div className="seat-chip">
+        {avatarUrl && <img src={avatarUrl} alt="" className="seat-avatar" />}
         <span className="seat-name">{tp.player.name.split(' ')[0]}</span>
         {isAfk && <span className="afk-indicator">AFK</span>}
         {isEliminated && <span className="eliminated-indicator">OUT</span>}
@@ -78,7 +82,7 @@ function EmptySeat({ position }: { position: React.CSSProperties }) {
 
 export default function PokerTable({ table, currentPlayerId, isAdmin, onEliminate }: Props) {
   const activePlayers = table.players.filter((p) => p.status !== 'ELIMINATED');
-  const eliminatedAtTable = table.players.filter((p) => p.status === 'ELIMINATED');
+  const folkMap = useFolk();
 
   return (
     <div className="poker-table-wrapper">
@@ -104,6 +108,7 @@ export default function PokerTable({ table, currentPlayerId, isAdmin, onEliminat
                 position={SEAT_POSITIONS[i]}
                 isMe={tp.playerId === currentPlayerId}
                 isAdmin={isAdmin}
+                avatarUrl={folkMap[tp.player.name]}
                 onEliminate={onEliminate}
               />
             );

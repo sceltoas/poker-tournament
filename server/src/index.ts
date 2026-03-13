@@ -8,6 +8,7 @@ import authRouter from './routes/auth';
 import tournamentRouter from './routes/tournaments';
 import playerRouter from './routes/players';
 import pushRouter from './routes/push';
+import folkRouter from './routes/folk';
 import { setupWebSocket } from './services/websocket';
 
 export const prisma = new PrismaClient();
@@ -39,6 +40,7 @@ app.use('/api/auth', authRouter);
 app.use('/api/tournaments', tournamentRouter);
 app.use('/api/players', playerRouter);
 app.use('/api/push', pushRouter);
+app.use('/api/folk', folkRouter);
 
 // Health check
 app.get('/api/health', (_req, res) => {
