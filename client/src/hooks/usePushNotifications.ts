@@ -27,7 +27,7 @@ export function usePushNotifications() {
   });
 
   const subscribe = useCallback(async () => {
-    if (!token || !VAPID_PUBLIC_KEY || !('serviceWorker' in navigator)) return;
+    if (!token || !VAPID_PUBLIC_KEY || typeof Notification === 'undefined' || !('serviceWorker' in navigator)) return;
 
     try {
       const registration = await navigator.serviceWorker.register('/sw.js');
@@ -72,7 +72,7 @@ export function usePushNotifications() {
 
   // Auto-subscribe if already granted
   useEffect(() => {
-    if (token && Notification.permission === 'granted') {
+    if (token && typeof Notification !== 'undefined' && Notification.permission === 'granted') {
       subscribe();
     }
   }, [token, subscribe]);
