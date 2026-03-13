@@ -86,8 +86,8 @@ export default function PokerTable({ table, currentPlayerId, isAdmin, onEliminat
       <div className="poker-table">
         <div className="table-felt">
           <div className="table-center">
-            <span className="table-number">T{table.tableNumber}</span>
-            <span className="table-count">{activePlayers.length} players</span>
+            <img src="/scelto_as_logo.jpeg" alt="Scelto" className="table-logo" />
+            <span className="table-count">{activePlayers.length} players · Bord #{table.tableNumber}</span>
           </div>
         </div>
 
