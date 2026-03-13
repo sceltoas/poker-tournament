@@ -3,7 +3,7 @@ services:
     name: scelto-poker
     runtime: node
     plan: free
-    buildCommand: pnpm install && pnpm build && pnpm db:deploy
+    buildCommand: pnpm install && pnpm build && pnpm db:deploy && pnpm db:seed
     startCommand: pnpm start
     envVars:
       - key: NODE_ENV
