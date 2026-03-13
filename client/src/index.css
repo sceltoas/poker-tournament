@@ -299,6 +299,26 @@ body {
   transform: scale(1.1);
 }
 
+@media (max-width: 767px) {
+  .btn-beer {
+    position: fixed;
+    bottom: 24px;
+    right: 24px;
+    z-index: 100;
+    width: 56px;
+    height: 56px;
+    background: var(--accent-gold);
+    color: var(--bg-dark);
+    border: none;
+    box-shadow: 0 4px 12px rgba(245, 166, 35, 0.4);
+    font-size: 22px;
+  }
+
+  .btn-beer:hover {
+    transform: scale(1.1);
+  }
+}
+
 .btn-afk {
   display: flex;
   align-items: center;
