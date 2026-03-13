@@ -4,9 +4,12 @@ const smtpConfig: any = {
   host: process.env.SMTP_HOST || 'localhost',
   port: parseInt(process.env.SMTP_PORT || '1025'),
   secure: process.env.SMTP_SECURE === 'true',
+  connectionTimeout: 10000,
+  greetingTimeout: 10000,
+  socketTimeout: 10000,
 };
 
-// Add auth if credentials are provided (production SMTP like Resend)
+// Add auth if credentials are provided (production SMTP like Brevo)
 if (process.env.SMTP_USER && process.env.SMTP_PASS) {
   smtpConfig.auth = {
     user: process.env.SMTP_USER,
@@ -16,13 +19,16 @@ if (process.env.SMTP_USER && process.env.SMTP_PASS) {
 
 const transporter = nodemailer.createTransport(smtpConfig);
 
+console.log(`SMTP configured: ${smtpConfig.host}:${smtpConfig.port} secure=${smtpConfig.secure} auth=${!!smtpConfig.auth}`);
+
 const APP_URL = process.env.APP_URL || 'http://localhost:5173';
+const SMTP_FROM = process.env.SMTP_FROM || '"Scelto Poker" <poker@scelto.no>';
 
 export async function sendMagicLink(email: string, name: string, token: string, tournamentName: string) {
   const loginUrl = `${APP_URL}/auth/verify?token=${token}`;
 
   await transporter.sendMail({
-    from: '"Scelto Poker" <poker@scelto.no>',
+    from: SMTP_FROM,
     to: email,
     subject: `You're invited to ${tournamentName}!`,
     html: `

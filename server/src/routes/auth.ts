@@ -42,12 +42,20 @@ router.post('/login', async (req, res) => {
       where: { status: 'ACTIVE' },
     });
 
-    await sendMagicLink(
-      player.email,
-      player.name,
-      token,
-      activeTournament?.name || 'Scelto Poker'
-    );
+    try {
+      await sendMagicLink(
+        player.email,
+        player.name,
+        token,
+        activeTournament?.name || 'Scelto Poker'
+      );
+    } catch (emailError) {
+      console.error('Email send failed (login link still created):', emailError);
+      return res.status(200).json({
+        message: 'Login link created but email delivery failed. Check server logs.',
+        emailError: true,
+      });
+    }
 
     res.json({ message: 'Login link sent to your email' });
   } catch (error) {
