@@ -82,7 +82,7 @@ function EmptySeat({ position }: { position: React.CSSProperties }) {
 
 export default function PokerTable({ table, currentPlayerId, isAdmin, onEliminate }: Props) {
   const activePlayers = table.players.filter((p) => p.status !== 'ELIMINATED');
-  const folkMap = useFolk();
+  const getAvatar = useFolk();
 
   return (
     <div className="poker-table-wrapper">
@@ -108,7 +108,7 @@ export default function PokerTable({ table, currentPlayerId, isAdmin, onEliminat
                 position={SEAT_POSITIONS[i]}
                 isMe={tp.playerId === currentPlayerId}
                 isAdmin={isAdmin}
-                avatarUrl={folkMap[tp.player.name]}
+                avatarUrl={getAvatar(tp.player.name)}
                 onEliminate={onEliminate}
               />
             );

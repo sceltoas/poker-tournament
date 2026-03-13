@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { api } from './useApi';
 
 // Module-level cache — survives re-renders and remounts
@@ -16,72 +16,65 @@ function normalize(name: string): string {
     .replace(/å/g, 'a');
 }
 
-// Build a lookup map: normalized player name → image URL
-// Tries full name match first, then first+last, then first name only
-function buildLookup(raw: Record<string, string>): Record<string, string> {
-  const normalized: { norm: string; parts: string[]; url: string; original: string }[] = [];
+interface FolkEntry {
+  norm: string;
+  parts: string[];
+  url: string;
+}
+
+function buildIndex(raw: Record<string, string>): { byExact: Record<string, string>; entries: FolkEntry[] } {
+  const byExact: Record<string, string> = {};
+  const entries: FolkEntry[] = [];
 
   for (const [name, url] of Object.entries(raw)) {
     const norm = normalize(name);
-    normalized.push({ norm, parts: norm.split(/\s+/), url, original: name });
+    byExact[name] = url;
+    byExact[norm] = url;
+    entries.push({ norm, parts: norm.split(/\s+/), url });
   }
 
-  // Return a resolver: given a player name, find best match
-  const lookup: Record<string, string> = {};
-
-  // Pre-index by full normalized name for O(1) exact matches
-  for (const entry of normalized) {
-    lookup[entry.original] = entry.url;
-    // Also index by normalized full name
-    lookup[`__norm__${entry.norm}`] = entry.url;
-  }
-
-  // Store the entries list for fuzzy matching
-  (lookup as any).__entries = normalized;
-
-  return lookup;
+  return { byExact, entries };
 }
 
-function resolveAvatar(lookup: Record<string, string>, playerName: string): string | undefined {
-  // 1. Exact match
-  if (lookup[playerName]) return lookup[playerName];
-
-  // 2. Normalized full match
+function resolve(index: { byExact: Record<string, string>; entries: FolkEntry[] }, playerName: string): string | undefined {
+  // 1. Exact match (original or normalized)
+  if (index.byExact[playerName]) return index.byExact[playerName];
   const norm = normalize(playerName);
-  if (lookup[`__norm__${norm}`]) return lookup[`__norm__${norm}`];
+  if (index.byExact[norm]) return index.byExact[norm];
 
-  // 3. Fuzzy: first + last name match, then first name only
-  const entries = (lookup as any).__entries as { norm: string; parts: string[]; url: string }[];
-  if (!entries) return undefined;
+  // 2. First + last name match
+  const parts = norm.split(/\s+/);
+  const first = parts[0];
+  const last = parts[parts.length - 1];
 
-  const playerParts = norm.split(/\s+/);
-  const playerFirst = playerParts[0];
-  const playerLast = playerParts[playerParts.length - 1];
-
-  // Try first + last match
-  if (playerParts.length >= 2) {
-    const match = entries.find(
-      (e) => e.parts[0] === playerFirst && e.parts[e.parts.length - 1] === playerLast
+  if (parts.length >= 2) {
+    const match = index.entries.find(
+      (e) => e.parts[0] === first && e.parts[e.parts.length - 1] === last
     );
     if (match) return match.url;
   }
 
-  // Try first name only (if unique)
-  const firstMatches = entries.filter((e) => e.parts[0] === playerFirst);
+  // 3. Unique first name match
+  const firstMatches = index.entries.filter((e) => e.parts[0] === first);
   if (firstMatches.length === 1) return firstMatches[0].url;
 
   return undefined;
 }
 
 /**
- * Returns a resolver function: playerName → imageUrl | undefined
- * Fetches folk data once, caches in memory for the session.
+ * Returns a function: (playerName) → imageUrl | undefined
+ * Fetches folk data once per session, caches in module scope.
  */
-export function useFolk(): Record<string, string> & { resolve?: (name: string) => string | undefined } {
-  const [lookup, setLookup] = useState<Record<string, string>>(folkCache ? buildLookup(folkCache) : {});
+export function useFolk(): (playerName: string) => string | undefined {
+  const [index, setIndex] = useState<{ byExact: Record<string, string>; entries: FolkEntry[] } | null>(
+    folkCache ? buildIndex(folkCache) : null
+  );
 
   useEffect(() => {
-    if (folkCache) return;
+    if (folkCache) {
+      setIndex(buildIndex(folkCache));
+      return;
+    }
 
     if (!folkPromise) {
       folkPromise = api('/api/folk').catch((err) => {
@@ -93,15 +86,12 @@ export function useFolk(): Record<string, string> & { resolve?: (name: string) =
 
     folkPromise.then((data) => {
       folkCache = data;
-      setLookup(buildLookup(data));
+      setIndex(buildIndex(data));
     });
   }, []);
 
-  // Return a proxy that resolves names on property access
-  return new Proxy(lookup, {
-    get(target, prop: string) {
-      if (prop === '__entries' || prop.startsWith('__')) return undefined;
-      return resolveAvatar(target, prop);
-    },
-  }) as any;
+  return useCallback(
+    (playerName: string) => (index ? resolve(index, playerName) : undefined),
+    [index]
+  );
 }

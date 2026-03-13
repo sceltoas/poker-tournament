@@ -7,19 +7,26 @@ let cache: { data: Record<string, string>; fetchedAt: number } | null = null;
 const CACHE_TTL = 24 * 60 * 60 * 1000; // 24 hours
 
 async function scrapeFolk(): Promise<Record<string, string>> {
-  const res = await fetch('https://scelto.no/folk');
+  const res = await fetch('https://scelto.no/folk', {
+    headers: { 'User-Agent': 'Mozilla/5.0' },
+    redirect: 'follow',
+  });
   if (!res.ok) throw new Error(`scelto.no returned ${res.status}`);
-  const html = await res.text();
+  let html = await res.text();
 
-  // Parse <li> blocks containing <img src="..."> and <h3>Name</h3>
+  // Squarespace encodes JSON data with &quot; — decode it
+  html = html.replace(/&quot;/g, '"');
+
+  // Extract "title": "Name" ... "assetUrl": "https://images.squarespace-cdn.com/..." pairs
+  // from Squarespace's embedded JSON data blocks
   const folkMap: Record<string, string> = {};
-  const pattern = /<img[^>]+src="(https:\/\/images\.squarespace-cdn\.com\/[^"]+)"[^>]*>[\s\S]*?<h3[^>]*>([^<]+)<\/h3>/gi;
+  const pattern = /"title":\s*"([A-ZÀ-Ž][^"]+)"[\s\S]*?"assetUrl":\s*"(https:\/\/images\.squarespace-cdn\.com\/[^"]+)"/g;
 
   let match;
   while ((match = pattern.exec(html)) !== null) {
-    const imageUrl = match[1];
-    const name = match[2].trim();
-    if (name && imageUrl) {
+    const name = match[1].trim();
+    const imageUrl = match[2];
+    if (name && imageUrl && !folkMap[name]) {
       folkMap[name] = imageUrl;
     }
   }
