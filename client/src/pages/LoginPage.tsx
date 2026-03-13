@@ -5,16 +5,24 @@ export default function LoginPage() {
   const [email, setEmail] = useState('');
   const [sent, setSent] = useState(false);
   const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
+    setLoading(true);
 
     try {
-      await api('/api/auth/login', { method: 'POST', body: { email } });
-      setSent(true);
+      const result = await api('/api/auth/login', { method: 'POST', body: { email } });
+      if (result.emailError) {
+        setError('Login link created but email delivery failed. Contact admin.');
+      } else {
+        setSent(true);
+      }
     } catch (err: any) {
       setError(err.message);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -46,7 +54,9 @@ export default function LoginPage() {
               onChange={(e) => setEmail(e.target.value)}
               required
             />
-            <button type="submit">Send Login Link</button>
+            <button type="submit" disabled={loading}>
+              {loading ? 'Sending...' : 'Send Login Link'}
+            </button>
             {error && <p className="error">{error}</p>}
           </form>
         )}
