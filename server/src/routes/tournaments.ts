@@ -270,39 +270,59 @@ router.post('/:id/merge', authenticate, requireAdmin, async (req: AuthRequest, r
 
     const toTable = await prisma.tournamentTable.findUnique({
       where: { id: toTableId },
-      include: { players: true },
+      include: { players: { where: { status: { in: ['ACTIVE', 'AFK'] } } } },
     });
 
     if (!fromTable || !toTable) {
       return res.status(404).json({ error: 'Table not found' });
     }
 
-    const existingSeats = new Set(toTable.players.map((p) => p.seatNumber));
-    const availableSeats: number[] = [];
-    for (let s = 1; s <= 8; s++) {
-      if (!existingSeats.has(s)) availableSeats.push(s);
+    if (!fromTable.isActive) {
+      return res.status(400).json({ error: 'Source table is already inactive' });
     }
 
-    if (availableSeats.length < fromTable.players.length) {
+    const totalPlayers = fromTable.players.length + toTable.players.length;
+    if (totalPlayers > 8) {
       return res.status(400).json({ error: 'Not enough seats at destination table' });
     }
 
-    await prisma.tournamentPlayer.updateMany({
-      where: { tableId: fromTableId },
-      data: { tableId: null },
-    });
-
-    await prisma.tournamentTable.update({
-      where: { id: fromTableId },
-      data: { isActive: false },
-    });
-
-    for (let i = 0; i < fromTable.players.length; i++) {
-      await prisma.tournamentPlayer.update({
-        where: { id: fromTable.players[i].id },
-        data: { tableId: toTableId, seatNumber: availableSeats[i] },
+    await prisma.$transaction(async (tx) => {
+      // Detach ALL players from source table
+      await tx.tournamentPlayer.updateMany({
+        where: { tableId: fromTableId },
+        data: { tableId: null },
       });
-    }
+
+      // Detach eliminated players from destination (free their seats)
+      await tx.tournamentPlayer.updateMany({
+        where: { tableId: toTableId, status: 'ELIMINATED' },
+        data: { tableId: null },
+      });
+
+      // Mark source table inactive
+      await tx.tournamentTable.update({
+        where: { id: fromTableId },
+        data: { isActive: false },
+      });
+
+      // Compute available seats at destination (only active/AFK remain)
+      const remaining = await tx.tournamentPlayer.findMany({
+        where: { tableId: toTableId },
+      });
+      const occupiedSeats = new Set(remaining.map((p) => p.seatNumber));
+      const availableSeats: number[] = [];
+      for (let s = 1; s <= 8; s++) {
+        if (!occupiedSeats.has(s)) availableSeats.push(s);
+      }
+
+      // Move active/AFK players from source to destination
+      for (let i = 0; i < fromTable.players.length; i++) {
+        await tx.tournamentPlayer.update({
+          where: { id: fromTable.players[i].id },
+          data: { tableId: toTableId, seatNumber: availableSeats[i] },
+        });
+      }
+    });
 
     const fullTournament = await getFullTournament(tournamentId);
 
