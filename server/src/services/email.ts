@@ -36,37 +36,3 @@ export async function sendMagicLink(email: string, name: string, token: string, 
     `,
   });
 }
-
-export async function sendEliminationNotification(
-  email: string,
-  recipientName: string,
-  eliminatedPlayerName: string,
-  tournamentName: string,
-  position: number,
-  remaining: number
-) {
-  await transporter.sendMail({
-    from: '"Scelto Poker" <poker@scelto.no>',
-    to: email,
-    subject: `${eliminatedPlayerName} eliminated from ${tournamentName}`,
-    html: `
-      <div style="font-family: Arial, sans-serif; max-width: 500px; margin: 0 auto; padding: 20px;">
-        <h1 style="color: #1a1a2e;">Player Eliminated</h1>
-        <p>Hey ${recipientName},</p>
-        <p><strong>${eliminatedPlayerName}</strong> has been knocked out of <strong>${tournamentName}</strong>
-           finishing in position #${position}.</p>
-        <p>${remaining} players remaining.</p>
-        <a href="${APP_URL}" style="
-          display: inline-block;
-          background: #e94560;
-          color: white;
-          padding: 12px 24px;
-          text-decoration: none;
-          border-radius: 8px;
-          font-weight: bold;
-          margin: 16px 0;
-        ">View Tournament</a>
-      </div>
-    `,
-  });
-}

@@ -1,7 +1,8 @@
-import { Beer, Wifi, WifiOff, Shield, LogOut, Coffee, ArrowRight } from 'lucide-react';
+import { Beer, Wifi, WifiOff, Shield, LogOut, Coffee, ArrowRight, Bell, BellOff, BellRing } from 'lucide-react';
 import { Player, Tournament } from '../types';
 import { useAuth } from '../contexts/AuthContext';
 import { useSocket } from '../contexts/SocketContext';
+import { usePushNotifications } from '../hooks/usePushNotifications';
 import { NavigateFunction } from 'react-router-dom';
 
 interface Props {
@@ -26,6 +27,7 @@ export default function Header({
 }: Props) {
   const { logout } = useAuth();
   const { connected } = useSocket();
+  const { pushState, subscribe } = usePushNotifications();
 
   const activePlayers = tournament?.players.filter(
     (p) => p.status === 'ACTIVE' || p.status === 'AFK'
@@ -90,6 +92,29 @@ export default function Header({
         {player.isAdmin && (
           <button onClick={() => navigate('/admin')} className="btn-admin" title="Admin">
             <Shield size={16} /> Admin
+          </button>
+        )}
+
+        {pushState !== 'unsupported' && (
+          <button
+            onClick={pushState === 'prompt' ? subscribe : undefined}
+            className={`btn-notify ${pushState}`}
+            title={
+              pushState === 'subscribed'
+                ? 'Notifications enabled'
+                : pushState === 'denied'
+                ? 'Notifications blocked — enable in browser settings'
+                : 'Enable notifications'
+            }
+            disabled={pushState !== 'prompt'}
+          >
+            {pushState === 'subscribed' ? (
+              <BellRing size={16} />
+            ) : pushState === 'denied' ? (
+              <BellOff size={16} />
+            ) : (
+              <Bell size={16} />
+            )}
           </button>
         )}
 

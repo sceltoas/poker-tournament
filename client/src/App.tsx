@@ -1,6 +1,5 @@
 import { Routes, Route, Navigate } from 'react-router-dom';
 import { useAuth } from './contexts/AuthContext';
-import { usePushNotifications } from './hooks/usePushNotifications';
 import LoginPage from './pages/LoginPage';
 import VerifyPage from './pages/VerifyPage';
 import DashboardPage from './pages/DashboardPage';
@@ -8,7 +7,6 @@ import AdminPage from './pages/AdminPage';
 
 export default function App() {
   const { player, loading } = useAuth();
-  usePushNotifications();
 
   if (loading) {
     return (

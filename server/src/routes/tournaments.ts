@@ -2,7 +2,7 @@ import { Router } from 'express';
 import { Server as SocketIOServer } from 'socket.io';
 import { prisma } from '../index';
 import { authenticate, requireAdmin, AuthRequest } from '../middleware/auth';
-import { sendMagicLink, sendEliminationNotification } from '../services/email';
+import { sendMagicLink } from '../services/email';
 import { sendPushToTournamentPlayers } from '../services/pushNotification';
 import {
   emitTournamentUpdate,
@@ -254,28 +254,6 @@ router.post('/:id/eliminate/:playerId', authenticate, async (req: AuthRequest, r
       body: `${tp.player.name} has been knocked out (#${finishPosition})`,
       tag: `elimination-${playerId}`,
     }, playerId);
-
-    const remainingPlayers = await prisma.tournamentPlayer.findMany({
-      where: {
-        tournamentId,
-        status: { in: ['ACTIVE', 'AFK'] },
-        playerId: { not: playerId },
-      },
-      include: { player: true },
-    });
-
-    const tournament = await prisma.tournament.findUnique({ where: { id: tournamentId } });
-
-    for (const rp of remainingPlayers) {
-      sendEliminationNotification(
-        rp.player.email,
-        rp.player.name,
-        tp.player.name,
-        tournament?.name || 'Tournament',
-        finishPosition,
-        activePlayers - 1
-      ).catch(console.error);
-    }
 
     const ended = await checkTournamentEnd(io, tournamentId);
 

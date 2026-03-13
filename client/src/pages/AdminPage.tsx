@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { useApiClient } from '../hooks/useApi';
 import { Player } from '../types';
-import { ArrowLeft, Plus, Users, Trophy } from 'lucide-react';
+import { ArrowLeft, Plus, Users, Trophy, Shield } from 'lucide-react';
 
 export default function AdminPage() {
   const { player, token } = useAuth();
@@ -36,6 +36,15 @@ export default function AdminPage() {
       setSelectedPlayerIds(new Set());
     } else {
       setSelectedPlayerIds(new Set(players.map((p) => p.id)));
+    }
+  };
+
+  const handleToggleAdmin = async (targetPlayer: Player) => {
+    try {
+      const updated = await apiClient.patch(`/api/players/${targetPlayer.id}/admin`);
+      setPlayers(players.map((p) => (p.id === updated.id ? updated : p)));
+    } catch (err: any) {
+      setError(err.message);
     }
   };
 
@@ -119,6 +128,18 @@ export default function AdminPage() {
                 <span className="player-name">{p.name}</span>
                 <span className="player-email">{p.email}</span>
                 {p.isAdmin && <span className="admin-badge">Admin</span>}
+                {p.id !== player?.id && (
+                  <button
+                    className={`btn-admin-toggle ${p.isAdmin ? 'is-admin' : ''}`}
+                    title={p.isAdmin ? 'Remove admin' : 'Make admin'}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleToggleAdmin(p);
+                    }}
+                  >
+                    <Shield size={14} />
+                  </button>
+                )}
               </button>
             ))}
           </div>

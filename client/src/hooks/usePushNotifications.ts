@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { api } from './useApi';
 
@@ -15,53 +15,67 @@ function urlBase64ToUint8Array(base64String: string): Uint8Array {
   return outputArray;
 }
 
+type PushState = 'unsupported' | 'prompt' | 'subscribed' | 'denied';
+
 export function usePushNotifications() {
   const { token } = useAuth();
-  const [permission, setPermission] = useState<NotificationPermission>(
-    typeof Notification !== 'undefined' ? Notification.permission : 'default'
-  );
+  const [pushState, setPushState] = useState<PushState>(() => {
+    if (typeof Notification === 'undefined' || !('serviceWorker' in navigator)) return 'unsupported';
+    if (Notification.permission === 'denied') return 'denied';
+    if (Notification.permission === 'granted') return 'subscribed';
+    return 'prompt';
+  });
 
-  useEffect(() => {
+  const subscribe = useCallback(async () => {
     if (!token || !VAPID_PUBLIC_KEY || !('serviceWorker' in navigator)) return;
 
-    async function subscribe() {
-      try {
-        const registration = await navigator.serviceWorker.register('/sw.js');
+    try {
+      const registration = await navigator.serviceWorker.register('/sw.js');
 
-        if (Notification.permission === 'default') {
-          const result = await Notification.requestPermission();
-          setPermission(result);
-          if (result !== 'granted') return;
-        } else if (Notification.permission !== 'granted') {
+      if (Notification.permission === 'default') {
+        const result = await Notification.requestPermission();
+        if (result === 'denied') {
+          setPushState('denied');
           return;
         }
-
-        let subscription = await registration.pushManager.getSubscription();
-
-        if (!subscription) {
-          subscription = await registration.pushManager.subscribe({
-            userVisibleOnly: true,
-            applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY),
-          });
-        }
-
-        const subJson = subscription.toJSON();
-
-        await api('/api/push/subscribe', {
-          method: 'POST',
-          token,
-          body: {
-            endpoint: subJson.endpoint,
-            keys: subJson.keys,
-          },
-        });
-      } catch (error) {
-        console.error('Push subscription failed:', error);
+        if (result !== 'granted') return;
+      } else if (Notification.permission === 'denied') {
+        setPushState('denied');
+        return;
       }
-    }
 
-    subscribe();
+      let subscription = await registration.pushManager.getSubscription();
+
+      if (!subscription) {
+        subscription = await registration.pushManager.subscribe({
+          userVisibleOnly: true,
+          applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY),
+        });
+      }
+
+      const subJson = subscription.toJSON();
+
+      await api('/api/push/subscribe', {
+        method: 'POST',
+        token,
+        body: {
+          endpoint: subJson.endpoint,
+          keys: subJson.keys,
+        },
+      });
+
+      setPushState('subscribed');
+    } catch (error) {
+      console.error('Push subscription failed:', error);
+    }
   }, [token]);
 
-  return { permission };
+  // Auto-subscribe if already granted
+  useEffect(() => {
+    if (token && Notification.permission === 'granted') {
+      subscribe();
+    }
+  }, [token, subscribe]);
+
+  return { pushState, subscribe };
 }

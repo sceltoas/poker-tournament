@@ -36,4 +36,29 @@ router.post('/', authenticate, requireAdmin, async (req: AuthRequest, res) => {
   }
 });
 
+// Toggle admin status (admin only)
+router.patch('/:id/admin', authenticate, requireAdmin, async (req: AuthRequest, res) => {
+  try {
+    const player = await prisma.player.findUnique({ where: { id: req.params.id } });
+
+    if (!player) {
+      return res.status(404).json({ error: 'Player not found' });
+    }
+
+    if (player.id === req.playerId) {
+      return res.status(400).json({ error: 'Cannot change your own admin status' });
+    }
+
+    const updated = await prisma.player.update({
+      where: { id: req.params.id },
+      data: { isAdmin: !player.isAdmin },
+      select: { id: true, name: true, email: true, isAdmin: true },
+    });
+
+    res.json(updated);
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to update admin status' });
+  }
+});
+
 export default router;

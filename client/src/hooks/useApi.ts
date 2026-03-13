@@ -34,6 +34,7 @@ export function useApiClient(token: string | null) {
     get: (path: string) => api(path, { token }),
     post: (path: string, body?: any) => api(path, { method: 'POST', body, token }),
     put: (path: string, body?: any) => api(path, { method: 'PUT', body, token }),
+    patch: (path: string, body?: any) => api(path, { method: 'PATCH', body, token }),
     del: (path: string) => api(path, { method: 'DELETE', token }),
   };
 }

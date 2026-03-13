@@ -294,6 +294,51 @@ body {
   font-size: 13px;
 }
 
+.btn-notify {
+  background: none;
+  border: 2px solid var(--text-muted);
+  color: var(--text-muted);
+  border-radius: 50%;
+  width: 36px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.btn-notify.prompt {
+  border-color: var(--accent-gold);
+  color: var(--accent-gold);
+  animation: pulse-notify 2s ease-in-out infinite;
+}
+
+.btn-notify.prompt:hover {
+  background: var(--accent-gold);
+  color: var(--bg-dark);
+  transform: scale(1.1);
+  animation: none;
+}
+
+.btn-notify.subscribed {
+  border-color: var(--success);
+  color: var(--success);
+  cursor: default;
+}
+
+.btn-notify.denied {
+  border-color: var(--text-muted);
+  color: var(--text-muted);
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+@keyframes pulse-notify {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+
 .user-info {
   display: flex;
   align-items: center;
@@ -928,6 +973,7 @@ body {
   text-align: left;
   transition: all 0.2s;
   color: var(--text-primary);
+  position: relative;
 }
 
 .player-select-card:hover {
@@ -955,6 +1001,32 @@ body {
   text-transform: uppercase;
   letter-spacing: 1px;
   font-weight: 700;
+}
+
+.btn-admin-toggle {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  background: none;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 6px;
+  padding: 4px 6px;
+  cursor: pointer;
+  color: var(--text-muted);
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+}
+
+.btn-admin-toggle:hover {
+  color: var(--accent-blue);
+  border-color: var(--accent-blue);
+  background: rgba(52, 152, 219, 0.1);
+}
+
+.btn-admin-toggle.is-admin {
+  color: var(--accent-blue);
+  border-color: var(--accent-blue);
 }
 
 .add-player-form {
