@@ -1055,6 +1055,13 @@ body {
   gap: 8px;
 }
 
+@media (min-width: 768px) {
+  .player-grid {
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 12px;
+  }
+}
+
 .player-select-card {
   display: flex;
   flex-direction: column;
@@ -1072,10 +1079,16 @@ body {
   overflow: hidden;
 }
 
+@media (min-width: 768px) {
+  .player-select-card {
+    padding: 16px 20px;
+  }
+}
+
 .player-select-card.has-avatar {
   flex-direction: row;
   align-items: center;
-  gap: 10px;
+  gap: 12px;
   flex-wrap: wrap;
 }
 
@@ -1087,6 +1100,30 @@ body {
   object-position: top;
   flex-shrink: 0;
   border: 2px solid rgba(255, 255, 255, 0.1);
+}
+
+@media (min-width: 768px) {
+  .player-card-avatar {
+    width: 52px;
+    height: 52px;
+  }
+
+  .player-name {
+    font-size: 16px !important;
+  }
+
+  .player-email {
+    font-size: 12px !important;
+  }
+
+  .player-select-card.has-avatar .player-name,
+  .player-select-card.has-avatar .player-email {
+    flex-basis: calc(100% - 68px);
+  }
+
+  .player-select-card.has-avatar .player-email {
+    margin-left: 66px;
+  }
 }
 
 .player-select-card.selected .player-card-avatar {
