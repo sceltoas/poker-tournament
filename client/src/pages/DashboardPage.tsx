@@ -11,6 +11,7 @@ import MergeBanner from '../components/MergeBanner';
 import BeerToastOverlay from '../components/BeerToastOverlay';
 import NotificationToast from '../components/NotificationToast';
 import Header from '../components/Header';
+import plingSfx from '../assets/pling.mp3';
 
 export default function DashboardPage() {
   const { player, token } = useAuth();
@@ -82,6 +83,9 @@ export default function DashboardPage() {
     const handleBeerToast = (data: BeerToastEvent) => {
       setBeerToast(data);
       setTimeout(() => setBeerToast(null), 4000);
+      if (player?.isAdmin) {
+        new Audio(plingSfx).play().catch(() => {});
+      }
     };
 
     const handleTablesMerged = (data: any) => {
@@ -95,12 +99,17 @@ export default function DashboardPage() {
       setNotification('Tournament finished!');
     };
 
+    const handlePlayerJoined = (data: { playerName: string }) => {
+      setNotification(`${data.playerName} joined the tournament!`);
+    };
+
     socket.on('tournament-update', handleUpdate);
     socket.on('player-eliminated', handleElimination);
     socket.on('merge-suggestion', handleMergeSuggestion);
     socket.on('beer-toast', handleBeerToast);
     socket.on('tables-merged', handleTablesMerged);
     socket.on('tournament-finished', handleFinished);
+    socket.on('player-joined', handlePlayerJoined);
 
     return () => {
       socket.off('tournament-update', handleUpdate);
@@ -109,6 +118,7 @@ export default function DashboardPage() {
       socket.off('beer-toast', handleBeerToast);
       socket.off('tables-merged', handleTablesMerged);
       socket.off('tournament-finished', handleFinished);
+      socket.off('player-joined', handlePlayerJoined);
     };
   }, [socket, player?.isAdmin]);
 
@@ -149,6 +159,17 @@ export default function DashboardPage() {
       });
     } catch (err: any) {
       setNotification(`Merge failed: ${err.message}`);
+    }
+  };
+
+  const handleJoinTournament = async () => {
+    if (!activeTournament) return;
+    try {
+      const updated = await apiClient.post(`/api/tournaments/${activeTournament.id}/join`);
+      setActiveTournament(updated);
+      setNotification('You joined the tournament!');
+    } catch (err: any) {
+      setNotification(`Error: ${err.message}`);
     }
   };
 
@@ -210,6 +231,19 @@ export default function DashboardPage() {
               Create Tournament
             </button>
           )}
+        </div>
+      )}
+
+      {activeTournament?.status === 'ACTIVE' && !myTournamentPlayer && (
+        <div className="join-tournament-banner">
+          <h2>{activeTournament.name}</h2>
+          <p>
+            {activeTournament.players.filter((p) => p.status !== 'ELIMINATED').length} players
+            at the tables
+          </p>
+          <button onClick={handleJoinTournament} className="btn-primary btn-join">
+            Join Tournament
+          </button>
         </div>
       )}
 

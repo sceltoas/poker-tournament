@@ -12,6 +12,7 @@ import {
   emitPlayerStatusChange,
   emitTablesMerged,
   emitTournamentFinished,
+  emitPlayerJoined,
 } from '../services/websocket';
 import { v4 as uuid } from 'uuid';
 
@@ -106,6 +107,28 @@ async function checkTournamentEnd(io: SocketIOServer, tournamentId: string) {
   return false;
 }
 
+// ─── PUBLIC: active tournament status (no auth) ────────────────────
+router.get('/active-status', async (_req, res) => {
+  const tournament = await prisma.tournament.findFirst({
+    where: { status: 'ACTIVE' },
+    include: {
+      _count: { select: { players: true } },
+      players: { where: { status: { in: ['ACTIVE', 'AFK'] } } },
+    },
+  });
+
+  if (!tournament) {
+    return res.json({ hasActive: false });
+  }
+
+  res.json({
+    hasActive: true,
+    name: tournament.name,
+    playerCount: tournament._count.players,
+    activePlayerCount: tournament.players.length,
+  });
+});
+
 // ─── LIST tournaments ───────────────────────────────────────────────
 router.get('/', authenticate, async (_req, res) => {
   const tournaments = await prisma.tournament.findMany({
@@ -127,13 +150,13 @@ router.get('/:id', authenticate, async (req, res) => {
 // ─── CREATE tournament (admin) ──────────────────────────────────────
 router.post('/', authenticate, requireAdmin, async (req: AuthRequest, res) => {
   try {
-    const { name, playerIds } = req.body as { name: string; playerIds: string[] };
+    const { name, playerIds } = req.body as { name: string; playerIds?: string[] };
 
-    if (!name || !playerIds?.length) {
-      return res.status(400).json({ error: 'Name and player IDs required' });
+    if (!name?.trim()) {
+      return res.status(400).json({ error: 'Tournament name is required' });
     }
 
-    if (playerIds.length > 80) {
+    if (playerIds && playerIds.length > 80) {
       return res.status(400).json({ error: 'Maximum 80 players (10 tables x 8)' });
     }
 
@@ -141,47 +164,49 @@ router.post('/', authenticate, requireAdmin, async (req: AuthRequest, res) => {
       data: { name, status: 'ACTIVE', startedAt: new Date() },
     });
 
-    const numTables = Math.ceil(playerIds.length / 8);
-    const playersPerTable = Math.ceil(playerIds.length / numTables);
+    if (playerIds && playerIds.length > 0) {
+      const numTables = Math.ceil(playerIds.length / 8);
+      const playersPerTable = Math.ceil(playerIds.length / numTables);
 
-    const tables = [];
-    for (let i = 0; i < numTables; i++) {
-      const table = await prisma.tournamentTable.create({
-        data: { tournamentId: tournament.id, tableNumber: i + 1 },
+      const tables = [];
+      for (let i = 0; i < numTables; i++) {
+        const table = await prisma.tournamentTable.create({
+          data: { tournamentId: tournament.id, tableNumber: i + 1 },
+        });
+        tables.push(table);
+      }
+
+      const shuffled = [...playerIds].sort(() => Math.random() - 0.5);
+
+      for (let i = 0; i < shuffled.length; i++) {
+        const tableIndex = Math.floor(i / playersPerTable);
+        const seatNumber = (i % playersPerTable) + 1;
+
+        await prisma.tournamentPlayer.create({
+          data: {
+            tournamentId: tournament.id,
+            playerId: shuffled[i],
+            tableId: tables[tableIndex].id,
+            seatNumber,
+          },
+        });
+      }
+
+      const players = await prisma.player.findMany({
+        where: { id: { in: playerIds } },
       });
-      tables.push(table);
-    }
 
-    const shuffled = [...playerIds].sort(() => Math.random() - 0.5);
-
-    for (let i = 0; i < shuffled.length; i++) {
-      const tableIndex = Math.floor(i / playersPerTable);
-      const seatNumber = (i % playersPerTable) + 1;
-
-      await prisma.tournamentPlayer.create({
-        data: {
-          tournamentId: tournament.id,
-          playerId: shuffled[i],
-          tableId: tables[tableIndex].id,
-          seatNumber,
-        },
-      });
-    }
-
-    const players = await prisma.player.findMany({
-      where: { id: { in: playerIds } },
-    });
-
-    for (const player of players) {
-      const token = uuid();
-      await prisma.magicLink.create({
-        data: {
-          playerId: player.id,
-          token,
-          expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
-        },
-      });
-      await sendMagicLink(player.email, player.name, token, name);
+      for (const player of players) {
+        const token = uuid();
+        await prisma.magicLink.create({
+          data: {
+            playerId: player.id,
+            token,
+            expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+          },
+        });
+        await sendMagicLink(player.email, player.name, token, name);
+      }
     }
 
     const fullTournament = await getFullTournament(tournament.id);
@@ -192,6 +217,72 @@ router.post('/', authenticate, requireAdmin, async (req: AuthRequest, res) => {
   }
 });
 
+// ─── JOIN tournament (self-service) ─────────────────────────────────
+router.post('/:id/join', authenticate, async (req: AuthRequest, res) => {
+  const io: SocketIOServer = req.app.get('io');
+  const { id: tournamentId } = req.params;
+  const playerId = req.playerId!;
+
+  try {
+    const tournament = await prisma.tournament.findUnique({ where: { id: tournamentId } });
+    if (!tournament) return res.status(404).json({ error: 'Tournament not found' });
+    if (tournament.status !== 'ACTIVE') return res.status(400).json({ error: 'Tournament is not active' });
+
+    const existing = await prisma.tournamentPlayer.findFirst({
+      where: { tournamentId, playerId },
+    });
+    if (existing) return res.status(409).json({ error: 'Already in tournament' });
+
+    const totalPlayers = await prisma.tournamentPlayer.count({ where: { tournamentId } });
+    if (totalPlayers >= 80) return res.status(400).json({ error: 'Tournament is full' });
+
+    // Find table with most available seats
+    const tables = await prisma.tournamentTable.findMany({
+      where: { tournamentId, isActive: true },
+      include: { players: { where: { status: { in: ['ACTIVE', 'AFK'] } } } },
+    });
+
+    let targetTable = tables
+      .map((t) => ({ ...t, room: 8 - t.players.length }))
+      .filter((t) => t.room > 0)
+      .sort((a, b) => b.room - a.room)[0];
+
+    // No room at existing tables — create a new one
+    if (!targetTable) {
+      const tableCount = await prisma.tournamentTable.count({ where: { tournamentId } });
+      if (tableCount >= 10) return res.status(400).json({ error: 'No available seats' });
+
+      const maxTableNum = tables.length > 0 ? Math.max(...tables.map((t) => t.tableNumber)) : 0;
+      const newTable = await prisma.tournamentTable.create({
+        data: { tournamentId, tableNumber: maxTableNum + 1 },
+      });
+      targetTable = { ...newTable, players: [], room: 8 };
+    }
+
+    // Find first available seat (check ALL players at table for unique constraint)
+    const allPlayersAtTable = await prisma.tournamentPlayer.findMany({
+      where: { tableId: targetTable.id },
+    });
+    const occupiedSeats = new Set(allPlayersAtTable.map((p) => p.seatNumber));
+    let seatNumber = 1;
+    while (occupiedSeats.has(seatNumber) && seatNumber <= 8) seatNumber++;
+
+    await prisma.tournamentPlayer.create({
+      data: { tournamentId, playerId, tableId: targetTable.id, seatNumber },
+    });
+
+    const player = await prisma.player.findUnique({ where: { id: playerId } });
+    const fullTournament = await getFullTournament(tournamentId);
+
+    emitPlayerJoined(io, tournamentId, { playerName: player?.name });
+    emitTournamentUpdate(io, tournamentId, fullTournament);
+
+    res.status(201).json(fullTournament);
+  } catch (error) {
+    console.error('Join tournament error:', error);
+    res.status(500).json({ error: 'Failed to join tournament' });
+  }
+});
 
 // ─── ELIMINATE player ───────────────────────────────────────────────
 router.post('/:id/eliminate/:playerId', authenticate, async (req: AuthRequest, res) => {

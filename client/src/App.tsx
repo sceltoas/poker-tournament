@@ -1,6 +1,7 @@
 import { Routes, Route, Navigate } from 'react-router-dom';
 import { useAuth } from './contexts/AuthContext';
 import LoginPage from './pages/LoginPage';
+import LandingPage from './pages/LandingPage';
 import VerifyPage from './pages/VerifyPage';
 import DashboardPage from './pages/DashboardPage';
 import AdminPage from './pages/AdminPage';
@@ -21,7 +22,7 @@ export default function App() {
     <Routes>
       <Route path="/auth/verify" element={<VerifyPage />} />
       <Route path="/login" element={player ? <Navigate to="/" /> : <LoginPage />} />
-      <Route path="/" element={player ? <DashboardPage /> : <Navigate to="/login" />} />
+      <Route path="/" element={player ? <DashboardPage /> : <LandingPage />} />
       <Route
         path="/admin"
         element={

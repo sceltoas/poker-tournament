@@ -6,14 +6,28 @@ import { sendMagicLink } from '../services/email';
 
 const router = Router();
 
+function deriveNameFromEmail(email: string): string {
+  const local = email.split('@')[0];
+  return local
+    .split('.')
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(' ');
+}
+
 // Request magic link
 router.post('/login', async (req, res) => {
   try {
     const { email } = req.body;
 
-    const player = await prisma.player.findUnique({ where: { email } });
+    if (!email || typeof email !== 'string' || !email.endsWith('@scelto.no')) {
+      return res.status(400).json({ error: 'Must use a @scelto.no email address' });
+    }
+
+    let player = await prisma.player.findUnique({ where: { email } });
     if (!player) {
-      return res.status(404).json({ error: 'No player found with that email' });
+      player = await prisma.player.create({
+        data: { name: deriveNameFromEmail(email), email },
+      });
     }
 
     const token = uuid();

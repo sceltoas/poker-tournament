@@ -69,19 +69,15 @@ export default function AdminPage() {
       setError('Tournament name required');
       return;
     }
-    if (selectedPlayerIds.size < 2) {
-      setError('Select at least 2 players');
-      return;
-    }
-
     setCreating(true);
     setError('');
 
     try {
-      await apiClient.post('/api/tournaments', {
-        name: tournamentName,
-        playerIds: Array.from(selectedPlayerIds),
-      });
+      const body: any = { name: tournamentName };
+      if (selectedPlayerIds.size > 0) {
+        body.playerIds = Array.from(selectedPlayerIds);
+      }
+      await apiClient.post('/api/tournaments', body);
       navigate('/');
     } catch (err: any) {
       setError(err.message);
@@ -112,7 +108,7 @@ export default function AdminPage() {
 
         <div className="admin-section">
           <div className="section-header">
-            <h2><Users size={20} /> Select Players ({selectedPlayerIds.size}/{players.length})</h2>
+            <h2><Users size={20} /> Pre-seat Players ({selectedPlayerIds.size}/{players.length})</h2>
             <button onClick={selectAll} className="btn-secondary">
               {selectedPlayerIds.size === players.length ? 'Deselect All' : 'Select All'}
             </button>
@@ -170,10 +166,14 @@ export default function AdminPage() {
 
         <button
           onClick={handleCreateTournament}
-          disabled={creating || selectedPlayerIds.size < 2 || !tournamentName.trim()}
+          disabled={creating || !tournamentName.trim()}
           className="btn-create-tournament"
         >
-          {creating ? 'Creating...' : `Create Tournament (${selectedPlayerIds.size} players)`}
+          {creating
+            ? 'Creating...'
+            : selectedPlayerIds.size > 0
+            ? `Create Tournament (${selectedPlayerIds.size} players)`
+            : 'Create Tournament'}
         </button>
       </div>
     </div>

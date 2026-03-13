@@ -150,6 +150,59 @@ body {
   margin-top: 8px;
 }
 
+/* ─── Landing Page ───────────────────────────────────────────── */
+.landing-card {
+  max-width: 440px;
+}
+
+.landing-tournament-info {
+  background: rgba(39, 174, 96, 0.1);
+  border: 1px solid rgba(39, 174, 96, 0.3);
+  border-radius: 12px;
+  padding: 16px;
+  margin-bottom: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.landing-tournament-name {
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.landing-tournament-players {
+  font-size: 14px;
+  color: var(--success);
+}
+
+/* ─── Join Tournament Banner ─────────────────────────────────── */
+.join-tournament-banner {
+  text-align: center;
+  padding: 48px 24px;
+  margin: 24px;
+  background: var(--bg-card);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 16px;
+}
+
+.join-tournament-banner h2 {
+  font-size: 28px;
+  margin-bottom: 8px;
+}
+
+.join-tournament-banner p {
+  color: var(--text-secondary);
+  margin-bottom: 24px;
+  font-size: 16px;
+}
+
+.btn-join {
+  font-size: 18px;
+  padding: 14px 32px;
+}
+
 /* ─── Dashboard Header ────────────────────────────────────────── */
 .dashboard-header {
   display: flex;

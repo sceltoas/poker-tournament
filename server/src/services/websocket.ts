@@ -48,3 +48,7 @@ export function emitTablesMerged(io: SocketIOServer, tournamentId: string, data:
 export function emitTournamentFinished(io: SocketIOServer, tournamentId: string, data: any) {
   io.to(`tournament:${tournamentId}`).emit('tournament-finished', data);
 }
+
+export function emitPlayerJoined(io: SocketIOServer, tournamentId: string, data: any) {
+  io.to(`tournament:${tournamentId}`).emit('player-joined', data);
+}
