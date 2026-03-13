@@ -142,7 +142,7 @@ router.get('/', authenticate, async (_req, res) => {
 
 // ─── GET single tournament (full state) ─────────────────────────────
 router.get('/:id', authenticate, async (req, res) => {
-  const tournament = await getFullTournament(req.params.id);
+  const tournament = await getFullTournament(req.params.id as string);
   if (!tournament) return res.status(404).json({ error: 'Tournament not found' });
   res.json(tournament);
 });
@@ -220,7 +220,7 @@ router.post('/', authenticate, requireAdmin, async (req: AuthRequest, res) => {
 // ─── JOIN tournament (self-service) ─────────────────────────────────
 router.post('/:id/join', authenticate, async (req: AuthRequest, res) => {
   const io: SocketIOServer = req.app.get('io');
-  const { id: tournamentId } = req.params;
+  const tournamentId = req.params.id as string;
   const playerId = req.playerId!;
 
   try {
@@ -287,7 +287,8 @@ router.post('/:id/join', authenticate, async (req: AuthRequest, res) => {
 // ─── ELIMINATE player ───────────────────────────────────────────────
 router.post('/:id/eliminate/:playerId', authenticate, async (req: AuthRequest, res) => {
   const io: SocketIOServer = req.app.get('io');
-  const { id: tournamentId, playerId } = req.params;
+  const tournamentId = req.params.id as string;
+  const playerId = req.params.playerId as string;
 
   try {
     if (!req.isAdmin && req.playerId !== playerId) {
@@ -350,7 +351,7 @@ router.post('/:id/eliminate/:playerId', authenticate, async (req: AuthRequest, r
 // ─── MERGE tables (admin) ───────────────────────────────────────────
 router.post('/:id/merge', authenticate, requireAdmin, async (req: AuthRequest, res) => {
   const io: SocketIOServer = req.app.get('io');
-  const { id: tournamentId } = req.params;
+  const tournamentId = req.params.id as string;
   const { fromTableId, toTableId } = req.body;
 
   try {
@@ -435,7 +436,7 @@ router.post('/:id/merge', authenticate, requireAdmin, async (req: AuthRequest, r
 // ─── TOGGLE AFK status ──────────────────────────────────────────────
 router.post('/:id/afk', authenticate, async (req: AuthRequest, res) => {
   const io: SocketIOServer = req.app.get('io');
-  const { id: tournamentId } = req.params;
+  const tournamentId = req.params.id as string;
   const playerId = req.playerId!;
 
   try {
@@ -473,7 +474,7 @@ router.post('/:id/afk', authenticate, async (req: AuthRequest, res) => {
 // ─── BEER TOAST ─────────────────────────────────────────────────────
 router.post('/:id/toast', authenticate, async (req: AuthRequest, res) => {
   const io: SocketIOServer = req.app.get('io');
-  const { id: tournamentId } = req.params;
+  const tournamentId = req.params.id as string;
 
   try {
     const player = await prisma.player.findUnique({ where: { id: req.playerId! } });
@@ -498,7 +499,7 @@ router.post('/:id/toast', authenticate, async (req: AuthRequest, res) => {
 // ─── GET final results ──────────────────────────────────────────────
 router.get('/:id/results', authenticate, async (req, res) => {
   const tournament = await prisma.tournament.findUnique({
-    where: { id: req.params.id },
+    where: { id: req.params.id as string },
     include: {
       players: {
         include: { player: { select: { id: true, name: true, email: true } } },
@@ -509,20 +510,24 @@ router.get('/:id/results', authenticate, async (req, res) => {
 
   if (!tournament) return res.status(404).json({ error: 'Not found' });
 
+  const results = tournament.players
+    .filter((p: typeof tournament.players[number]) => p.finishPosition !== null)
+    .sort((a: typeof tournament.players[number], b: typeof tournament.players[number]) =>
+      (a.finishPosition || 999) - (b.finishPosition || 999)
+    )
+    .map((p: typeof tournament.players[number]) => ({
+      position: p.finishPosition,
+      name: p.player.name,
+      eliminatedAt: p.eliminatedAt,
+    }));
+
   res.json({
     id: tournament.id,
     name: tournament.name,
     status: tournament.status,
     startedAt: tournament.startedAt,
     endedAt: tournament.endedAt,
-    results: tournament.players
-      .filter((p) => p.finishPosition !== null)
-      .sort((a, b) => (a.finishPosition || 999) - (b.finishPosition || 999))
-      .map((p) => ({
-        position: p.finishPosition,
-        name: p.player.name,
-        eliminatedAt: p.eliminatedAt,
-      })),
+    results,
   });
 });
 

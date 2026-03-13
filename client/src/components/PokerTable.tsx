@@ -10,7 +10,7 @@ interface Props {
 
 // Positions for seats around an oval table (up to 8 seats)
 // Arranged in a circle: top, top-right, right, bottom-right, bottom, bottom-left, left, top-left
-const SEAT_POSITIONS = [
+const SEAT_POSITIONS: React.CSSProperties[] = [
   { top: '2%', left: '50%', transform: 'translate(-50%, 0)' },      // seat 1 - top center
   { top: '12%', right: '5%', transform: 'translate(0, 0)' },         // seat 2 - top right
   { top: '42%', right: '-2%', transform: 'translate(0, -50%)' },     // seat 3 - right
@@ -29,7 +29,7 @@ function PlayerSeat({
   onEliminate,
 }: {
   tp: TournamentPlayer;
-  position: Record<string, string>;
+  position: React.CSSProperties;
   isMe: boolean;
   isAdmin: boolean;
   onEliminate: (playerId: string) => void;
@@ -66,7 +66,7 @@ function PlayerSeat({
 }
 
 // Empty seat placeholder
-function EmptySeat({ position }: { position: Record<string, string> }) {
+function EmptySeat({ position }: { position: React.CSSProperties }) {
   return (
     <div className="player-seat empty" style={{ position: 'absolute', ...position }}>
       <div className="seat-chip empty-chip">
