@@ -8,6 +8,7 @@
     "build": "pnpm --filter poker-tournament-client build && pnpm --filter poker-tournament-server build",
     "start": "node server/dist/index.js",
     "db:deploy": "pnpm --filter poker-tournament-server db:deploy",
+    "db:deploy:seed": "pnpm db:deploy && pnpm --filter poker-tournament-server db:seed",
     "postinstall": "pnpm --filter poker-tournament-server db:generate",
     "generate-vapid": "pnpm dlx web-push generate-vapid-keys --json",
     "docker:up": "docker-compose up -d",

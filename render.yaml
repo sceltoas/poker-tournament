@@ -1,10 +1,11 @@
+# NOTE: Commands are set manually in the Render dashboard:
+#   Build: pnpm install && pnpm build && pnpm db:deploy:seed
+#   Start: pnpm start
 services:
   - type: web
     name: scelto-poker
     runtime: node
     plan: free
-    buildCommand: pnpm install && pnpm build && pnpm db:deploy && pnpm db:seed
-    startCommand: pnpm start
     envVars:
       - key: NODE_ENV
         value: production
