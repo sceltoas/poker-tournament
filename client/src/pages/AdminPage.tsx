@@ -4,6 +4,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { useApiClient } from '../hooks/useApi';
 import { Player } from '../types';
 import { ArrowLeft, Plus, Users, Trophy, Shield } from 'lucide-react';
+import { useFolk } from '../hooks/useFolk';
 
 export default function AdminPage() {
   const { player, token } = useAuth();
@@ -17,6 +18,7 @@ export default function AdminPage() {
   const [newPlayerEmail, setNewPlayerEmail] = useState('');
   const [creating, setCreating] = useState(false);
   const [error, setError] = useState('');
+  const getAvatar = useFolk();
 
   useEffect(() => {
     apiClient.get('/api/players').then(setPlayers).catch(console.error);
@@ -115,29 +117,33 @@ export default function AdminPage() {
           </div>
 
           <div className="player-grid">
-            {players.map((p) => (
-              <button
-                key={p.id}
-                className={`player-select-card ${selectedPlayerIds.has(p.id) ? 'selected' : ''}`}
-                onClick={() => togglePlayer(p.id)}
-              >
-                <span className="player-name">{p.name}</span>
-                <span className="player-email">{p.email}</span>
-                {p.isAdmin && <span className="admin-badge">Admin</span>}
-                {p.id !== player?.id && (
-                  <button
-                    className={`btn-admin-toggle ${p.isAdmin ? 'is-admin' : ''}`}
-                    title={p.isAdmin ? 'Remove admin' : 'Make admin'}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      handleToggleAdmin(p);
-                    }}
-                  >
-                    <Shield size={14} />
-                  </button>
-                )}
-              </button>
-            ))}
+            {players.map((p) => {
+              const avatarUrl = getAvatar(p.name);
+              return (
+                <button
+                  key={p.id}
+                  className={`player-select-card ${selectedPlayerIds.has(p.id) ? 'selected' : ''} ${avatarUrl ? 'has-avatar' : ''}`}
+                  onClick={() => togglePlayer(p.id)}
+                >
+                  {avatarUrl && <img src={avatarUrl} alt="" className="player-card-avatar" />}
+                  <span className="player-name">{p.name}</span>
+                  <span className="player-email">{p.email}</span>
+                  {p.isAdmin && <span className="admin-badge">Admin</span>}
+                  {p.id !== player?.id && (
+                    <button
+                      className={`btn-admin-toggle ${p.isAdmin ? 'is-admin' : ''}`}
+                      title={p.isAdmin ? 'Remove admin' : 'Make admin'}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleToggleAdmin(p);
+                      }}
+                    >
+                      <Shield size={14} />
+                    </button>
+                  )}
+                </button>
+              );
+            })}
           </div>
         </div>
 
