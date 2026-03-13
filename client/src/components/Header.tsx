@@ -10,7 +10,6 @@ interface Props {
   tournament: Tournament | null;
   onToggleAfk: () => void;
   onBeerToast: () => void;
-  onStartTournament: () => void;
   isAfk: boolean;
   isActive: boolean;
   navigate: NavigateFunction;

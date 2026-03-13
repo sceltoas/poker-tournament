@@ -31,7 +31,7 @@ export default function DashboardPage() {
       setTournaments(data);
 
       // Auto-select active tournament
-      const active = data.find((t: any) => t.status === 'ACTIVE' || t.status === 'REGISTRATION');
+      const active = data.find((t: any) => t.status === 'ACTIVE');
       if (active) {
         const full = await apiClient.get(`/api/tournaments/${active.id}`);
         setActiveTournament(full);
@@ -152,15 +152,6 @@ export default function DashboardPage() {
     }
   };
 
-  const handleStartTournament = async () => {
-    if (!activeTournament) return;
-    try {
-      await apiClient.post(`/api/tournaments/${activeTournament.id}/start`);
-    } catch (err: any) {
-      setNotification(`Error: ${err.message}`);
-    }
-  };
-
   if (loading) {
     return (
       <div className="loading-screen">
@@ -188,7 +179,6 @@ export default function DashboardPage() {
         tournament={activeTournament}
         onToggleAfk={handleToggleAfk}
         onBeerToast={handleBeerToastClick}
-        onStartTournament={handleStartTournament}
         isAfk={amIAfk || false}
         isActive={isMyTurnActive || false}
         navigate={navigate}
@@ -227,17 +217,6 @@ export default function DashboardPage() {
         <FinalResults tournament={activeTournament} />
       ) : (
         <>
-          {activeTournament?.status === 'REGISTRATION' && (
-            <div className="registration-banner">
-              <p>Tournament is in registration. {activeTournament.players.length} players registered.</p>
-              {player?.isAdmin && (
-                <button onClick={handleStartTournament} className="btn-primary">
-                  Start Tournament
-                </button>
-              )}
-            </div>
-          )}
-
           <div className="tables-grid">
             {activeTables.map((table) => (
               <PokerTable

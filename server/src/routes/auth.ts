@@ -25,7 +25,7 @@ router.post('/login', async (req, res) => {
 
     // Find any active tournament for the email subject
     const activeTournament = await prisma.tournament.findFirst({
-      where: { status: { in: ['REGISTRATION', 'ACTIVE'] } },
+      where: { status: 'ACTIVE' },
     });
 
     await sendMagicLink(

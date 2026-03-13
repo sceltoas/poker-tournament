@@ -137,7 +137,9 @@ router.post('/', authenticate, requireAdmin, async (req: AuthRequest, res) => {
       return res.status(400).json({ error: 'Maximum 80 players (10 tables x 8)' });
     }
 
-    const tournament = await prisma.tournament.create({ data: { name } });
+    const tournament = await prisma.tournament.create({
+      data: { name, status: 'ACTIVE', startedAt: new Date() },
+    });
 
     const numTables = Math.ceil(playerIds.length / 8);
     const playersPerTable = Math.ceil(playerIds.length / numTables);
@@ -190,22 +192,6 @@ router.post('/', authenticate, requireAdmin, async (req: AuthRequest, res) => {
   }
 });
 
-// ─── START tournament (admin) ───────────────────────────────────────
-router.post('/:id/start', authenticate, requireAdmin, async (req, res) => {
-  const io: SocketIOServer = req.app.get('io');
-  try {
-    await prisma.tournament.update({
-      where: { id: req.params.id },
-      data: { status: 'ACTIVE', startedAt: new Date() },
-    });
-
-    const fullTournament = await getFullTournament(req.params.id);
-    emitTournamentUpdate(io, req.params.id, fullTournament);
-    res.json(fullTournament);
-  } catch (error) {
-    res.status(500).json({ error: 'Failed to start tournament' });
-  }
-});
 
 // ─── ELIMINATE player ───────────────────────────────────────────────
 router.post('/:id/eliminate/:playerId', authenticate, async (req: AuthRequest, res) => {
