@@ -1,11 +1,20 @@
 import nodemailer from 'nodemailer';
 
-const transporter = nodemailer.createTransport({
+const smtpConfig: any = {
   host: process.env.SMTP_HOST || 'localhost',
   port: parseInt(process.env.SMTP_PORT || '1025'),
-  secure: false,
-  // No auth needed for Mailhog
-});
+  secure: process.env.SMTP_SECURE === 'true',
+};
+
+// Add auth if credentials are provided (production SMTP like Resend)
+if (process.env.SMTP_USER && process.env.SMTP_PASS) {
+  smtpConfig.auth = {
+    user: process.env.SMTP_USER,
+    pass: process.env.SMTP_PASS,
+  };
+}
+
+const transporter = nodemailer.createTransport(smtpConfig);
 
 const APP_URL = process.env.APP_URL || 'http://localhost:5173';
 
