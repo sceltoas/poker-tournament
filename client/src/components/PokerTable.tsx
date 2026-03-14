@@ -1,6 +1,6 @@
 import { useState, useRef } from 'react';
 import { TournamentTable, TournamentPlayer } from '../types';
-import { X } from 'lucide-react';
+import { X, RotateCcw } from 'lucide-react';
 import { useFolk } from '../hooks/useFolk';
 
 interface Props {
@@ -9,6 +9,7 @@ interface Props {
   isAdmin: boolean;
   maxSeats?: number;
   onEliminate: (playerId: string) => void;
+  onReinstate?: (playerId: string) => void;
   onSwap?: (playerId1: string, playerId2: string) => void;
 }
 
@@ -35,6 +36,7 @@ function PlayerSeat({
   isAdmin,
   avatarUrl,
   onEliminate,
+  onReinstate,
   onSwap,
 }: {
   tp: TournamentPlayer;
@@ -43,6 +45,7 @@ function PlayerSeat({
   isAdmin: boolean;
   avatarUrl?: string;
   onEliminate: (playerId: string) => void;
+  onReinstate?: (playerId: string) => void;
   onSwap?: (playerId1: string, playerId2: string) => void;
 }) {
   const isEliminated = tp.status === 'ELIMINATED';
@@ -117,6 +120,20 @@ function PlayerSeat({
           <X size={12} />
         </button>
       )}
+
+      {isEliminated && isAdmin && onReinstate && (
+        <button
+          className="btn-reinstate-badge"
+          onClick={() => {
+            if (confirm(`Reinstate ${tp.player.name}?`)) {
+              onReinstate(tp.playerId);
+            }
+          }}
+          title="Reinstate player"
+        >
+          <RotateCcw size={12} />
+        </button>
+      )}
     </div>
   );
 }
@@ -132,7 +149,7 @@ function EmptySeat({ position }: { position: React.CSSProperties }) {
   );
 }
 
-export default function PokerTable({ table, currentPlayerId, isAdmin, maxSeats = 8, onEliminate, onSwap }: Props) {
+export default function PokerTable({ table, currentPlayerId, isAdmin, maxSeats = 8, onEliminate, onReinstate, onSwap }: Props) {
   const activePlayers = table.players.filter((p) => p.status !== 'ELIMINATED');
   const getAvatar = useFolk();
   const seatCount = Math.min(maxSeats, SEAT_POSITIONS.length);
@@ -162,6 +179,7 @@ export default function PokerTable({ table, currentPlayerId, isAdmin, maxSeats =
                 isAdmin={isAdmin}
                 avatarUrl={getAvatar(tp.player.name)}
                 onEliminate={onEliminate}
+                onReinstate={onReinstate}
                 onSwap={onSwap}
               />
             );

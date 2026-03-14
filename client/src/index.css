@@ -750,8 +750,28 @@ body {
   z-index: 10;
 }
 
-.player-seat:hover .btn-eliminate {
+.player-seat:hover .btn-eliminate,
+.player-seat:hover .btn-reinstate-badge {
   opacity: 1;
+}
+
+.btn-reinstate-badge {
+  position: absolute;
+  top: -6px;
+  right: -6px;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: var(--success);
+  border: none;
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.2s;
+  z-index: 3;
 }
 
 /* ─── Eliminated List ─────────────────────────────────────────── */
@@ -800,6 +820,8 @@ body {
   color: var(--text-muted);
   font-size: 11px;
 }
+
+
 
 /* ─── Final Results ───────────────────────────────────────────── */
 .final-results {

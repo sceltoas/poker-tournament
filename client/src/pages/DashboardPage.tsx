@@ -131,6 +131,15 @@ export default function DashboardPage() {
     }
   };
 
+  const handleReinstate = async (playerId: string) => {
+    if (!activeTournament) return;
+    try {
+      await apiClient.post(`/api/tournaments/${activeTournament.id}/reinstate/${playerId}`);
+    } catch (err: any) {
+      setNotification(`Error: ${err.message}`);
+    }
+  };
+
   const handleToggleAfk = async () => {
     if (!activeTournament) return;
     try {
@@ -273,6 +282,7 @@ export default function DashboardPage() {
                 isAdmin={player?.isAdmin || false}
                 maxSeats={activeTournament?.maxSeatsPerTable}
                 onEliminate={handleEliminate}
+                onReinstate={player?.isAdmin ? handleReinstate : undefined}
                 onSwap={player?.isAdmin ? handleSwap : undefined}
               />
             ))}

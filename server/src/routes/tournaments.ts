@@ -509,6 +509,47 @@ router.post('/:id/swap', authenticate, requireAdmin, async (req: AuthRequest, re
   }
 });
 
+// ─── REINSTATE eliminated player (admin) ─────────────────────────────
+router.post('/:id/reinstate/:playerId', authenticate, requireAdmin, async (req: AuthRequest, res) => {
+  const io: SocketIOServer = req.app.get('io');
+  const tournamentId = req.params.id as string;
+  const playerId = req.params.playerId as string;
+
+  try {
+    const tournament = await prisma.tournament.findUnique({ where: { id: tournamentId } });
+    if (!tournament || tournament.status !== 'ACTIVE') {
+      return res.status(400).json({ error: 'Tournament is not active' });
+    }
+
+    const tp = await prisma.tournamentPlayer.findUnique({
+      where: { tournamentId_playerId: { tournamentId, playerId } },
+      include: { player: true },
+    });
+
+    if (!tp || tp.status !== 'ELIMINATED') {
+      return res.status(400).json({ error: 'Player is not eliminated' });
+    }
+
+    // Player keeps their existing table and seat — just reset status
+    await prisma.tournamentPlayer.update({
+      where: { id: tp.id },
+      data: {
+        status: 'ACTIVE',
+        eliminatedAt: null,
+        finishPosition: null,
+      },
+    });
+
+    const fullTournament = await getFullTournament(tournamentId);
+    emitTournamentUpdate(io, tournamentId, fullTournament);
+
+    res.json({ message: `${tp.player.name} reinstated`, tournament: fullTournament });
+  } catch (error) {
+    console.error('Reinstate error:', error);
+    res.status(500).json({ error: 'Failed to reinstate player' });
+  }
+});
+
 // ─── TOGGLE AFK status ──────────────────────────────────────────────
 router.post('/:id/afk', authenticate, async (req: AuthRequest, res) => {
   const io: SocketIOServer = req.app.get('io');
