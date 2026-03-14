@@ -433,6 +433,71 @@ router.post('/:id/merge', authenticate, requireAdmin, async (req: AuthRequest, r
   }
 });
 
+// ─── SWAP players (admin) ────────────────────────────────────────────
+router.post('/:id/swap', authenticate, requireAdmin, async (req: AuthRequest, res) => {
+  const io: SocketIOServer = req.app.get('io');
+  const tournamentId = req.params.id as string;
+  const { playerId1, playerId2 } = req.body;
+
+  try {
+    if (!playerId1 || !playerId2 || playerId1 === playerId2) {
+      return res.status(400).json({ error: 'Two different player IDs required' });
+    }
+
+    const tp1 = await prisma.tournamentPlayer.findUnique({
+      where: { tournamentId_playerId: { tournamentId, playerId: playerId1 } },
+    });
+    const tp2 = await prisma.tournamentPlayer.findUnique({
+      where: { tournamentId_playerId: { tournamentId, playerId: playerId2 } },
+    });
+
+    if (!tp1 || !tp2) {
+      return res.status(404).json({ error: 'Player not found in tournament' });
+    }
+
+    if (tp1.status === 'ELIMINATED' || tp2.status === 'ELIMINATED') {
+      return res.status(400).json({ error: 'Cannot swap eliminated players' });
+    }
+
+    // Swap tableId + seatNumber atomically
+    // Temporarily null out tableIds to avoid unique constraint violation
+    await prisma.$transaction(async (tx) => {
+      const table1 = tp1.tableId;
+      const seat1 = tp1.seatNumber;
+      const table2 = tp2.tableId;
+      const seat2 = tp2.seatNumber;
+
+      // Detach both players
+      await tx.tournamentPlayer.update({
+        where: { id: tp1.id },
+        data: { tableId: null },
+      });
+      await tx.tournamentPlayer.update({
+        where: { id: tp2.id },
+        data: { tableId: null },
+      });
+
+      // Assign swapped positions
+      await tx.tournamentPlayer.update({
+        where: { id: tp1.id },
+        data: { tableId: table2, seatNumber: seat2 },
+      });
+      await tx.tournamentPlayer.update({
+        where: { id: tp2.id },
+        data: { tableId: table1, seatNumber: seat1 },
+      });
+    });
+
+    const fullTournament = await getFullTournament(tournamentId);
+    emitTournamentUpdate(io, tournamentId, fullTournament);
+
+    res.json(fullTournament);
+  } catch (error) {
+    console.error('Swap error:', error);
+    res.status(500).json({ error: 'Failed to swap players' });
+  }
+});
+
 // ─── TOGGLE AFK status ──────────────────────────────────────────────
 router.post('/:id/afk', authenticate, async (req: AuthRequest, res) => {
   const io: SocketIOServer = req.app.get('io');

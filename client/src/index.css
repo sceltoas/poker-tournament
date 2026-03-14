@@ -601,6 +601,23 @@ body {
   transition: all 0.3s;
 }
 
+.player-seat[draggable="true"] {
+  cursor: grab;
+}
+
+.player-seat[draggable="true"]:active {
+  cursor: grabbing;
+}
+
+.player-seat.dragging {
+  opacity: 0.4;
+}
+
+.player-seat.drag-over .seat-chip {
+  box-shadow: 0 0 0 3px var(--accent-gold), 0 0 12px rgba(243, 156, 18, 0.4);
+  border-color: var(--accent-gold);
+}
+
 .seat-chip {
   background: var(--bg-surface);
   border: 2px solid rgba(255, 255, 255, 0.15);

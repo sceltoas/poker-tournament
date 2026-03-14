@@ -150,6 +150,18 @@ export default function DashboardPage() {
     }
   };
 
+  const handleSwap = async (playerId1: string, playerId2: string) => {
+    if (!activeTournament) return;
+    try {
+      await apiClient.post(`/api/tournaments/${activeTournament.id}/swap`, {
+        playerId1,
+        playerId2,
+      });
+    } catch (err: any) {
+      setNotification(`Swap failed: ${err.message}`);
+    }
+  };
+
   const handleMerge = async () => {
     if (!activeTournament || !mergeSuggestion) return;
     try {
@@ -260,6 +272,7 @@ export default function DashboardPage() {
                 currentPlayerId={player?.id || ''}
                 isAdmin={player?.isAdmin || false}
                 onEliminate={handleEliminate}
+                onSwap={player?.isAdmin ? handleSwap : undefined}
               />
             ))}
           </div>

@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { TournamentTable, TournamentPlayer } from '../types';
 import { X } from 'lucide-react';
 import { useFolk } from '../hooks/useFolk';
@@ -7,6 +8,7 @@ interface Props {
   currentPlayerId: string;
   isAdmin: boolean;
   onEliminate: (playerId: string) => void;
+  onSwap?: (playerId1: string, playerId2: string) => void;
 }
 
 // Positions for seats around an oval table (up to 8 seats)
@@ -29,6 +31,7 @@ function PlayerSeat({
   isAdmin,
   avatarUrl,
   onEliminate,
+  onSwap,
 }: {
   tp: TournamentPlayer;
   position: React.CSSProperties;
@@ -36,14 +39,50 @@ function PlayerSeat({
   isAdmin: boolean;
   avatarUrl?: string;
   onEliminate: (playerId: string) => void;
+  onSwap?: (playerId1: string, playerId2: string) => void;
 }) {
   const isEliminated = tp.status === 'ELIMINATED';
   const isAfk = tp.status === 'AFK';
+  const [isDragOver, setIsDragOver] = useState(false);
+
+  const canDrag = isAdmin && !isEliminated && !!onSwap;
 
   return (
     <div
-      className={`player-seat ${isEliminated ? 'eliminated' : ''} ${isAfk ? 'afk' : ''} ${isMe ? 'is-me' : ''}`}
+      className={`player-seat ${isEliminated ? 'eliminated' : ''} ${isAfk ? 'afk' : ''} ${isMe ? 'is-me' : ''} ${isDragOver ? 'drag-over' : ''}`}
       style={{ position: 'absolute', ...position }}
+      draggable={canDrag}
+      onDragStart={(e) => {
+        if (!canDrag) return;
+        e.dataTransfer.setData('text/plain', tp.playerId);
+        e.dataTransfer.effectAllowed = 'move';
+        (e.currentTarget as HTMLElement).classList.add('dragging');
+      }}
+      onDragEnd={(e) => {
+        (e.currentTarget as HTMLElement).classList.remove('dragging');
+      }}
+      onDragOver={(e) => {
+        if (!canDrag) return;
+        e.preventDefault();
+        e.dataTransfer.dropEffect = 'move';
+      }}
+      onDragEnter={(e) => {
+        if (!canDrag) return;
+        e.preventDefault();
+        setIsDragOver(true);
+      }}
+      onDragLeave={() => {
+        setIsDragOver(false);
+      }}
+      onDrop={(e) => {
+        e.preventDefault();
+        setIsDragOver(false);
+        if (!canDrag) return;
+        const fromPlayerId = e.dataTransfer.getData('text/plain');
+        if (fromPlayerId && fromPlayerId !== tp.playerId) {
+          onSwap!(fromPlayerId, tp.playerId);
+        }
+      }}
     >
       <div className={`seat-chip ${avatarUrl ? 'has-avatar' : ''}`}>
         {avatarUrl && <img src={avatarUrl} alt="" className="seat-avatar" />}
@@ -80,7 +119,7 @@ function EmptySeat({ position }: { position: React.CSSProperties }) {
   );
 }
 
-export default function PokerTable({ table, currentPlayerId, isAdmin, onEliminate }: Props) {
+export default function PokerTable({ table, currentPlayerId, isAdmin, onEliminate, onSwap }: Props) {
   const activePlayers = table.players.filter((p) => p.status !== 'ELIMINATED');
   const getAvatar = useFolk();
 
@@ -110,6 +149,7 @@ export default function PokerTable({ table, currentPlayerId, isAdmin, onEliminat
                 isAdmin={isAdmin}
                 avatarUrl={getAvatar(tp.player.name)}
                 onEliminate={onEliminate}
+                onSwap={onSwap}
               />
             );
           }
