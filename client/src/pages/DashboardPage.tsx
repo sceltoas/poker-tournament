@@ -31,13 +31,10 @@ export default function DashboardPage() {
       const data = await apiClient.get('/api/tournaments');
       setTournaments(data);
 
-      // Auto-select active tournament
+      // Auto-select active tournament only
       const active = data.find((t: any) => t.status === 'ACTIVE');
       if (active) {
         const full = await apiClient.get(`/api/tournaments/${active.id}`);
-        setActiveTournament(full);
-      } else if (data.length > 0) {
-        const full = await apiClient.get(`/api/tournaments/${data[0].id}`);
         setActiveTournament(full);
       }
     } catch (err) {
@@ -279,7 +276,14 @@ export default function DashboardPage() {
       )}
 
       {activeTournament?.status === 'FINISHED' ? (
-        <FinalResults tournament={activeTournament} isAdmin={player?.isAdmin} onReorder={player?.isAdmin ? handleReorder : undefined} />
+        <>
+          {!tournaments.some((t) => t.status === 'ACTIVE') && (
+            <button className="btn-back-to-list" onClick={() => setActiveTournament(null)}>
+              ← All Tournaments
+            </button>
+          )}
+          <FinalResults tournament={activeTournament} isAdmin={player?.isAdmin} onReorder={player?.isAdmin ? handleReorder : undefined} />
+        </>
       ) : (
         <>
           <div className="tables-grid">
@@ -304,22 +308,31 @@ export default function DashboardPage() {
       )}
 
       {!activeTournament && tournaments.length > 0 && (
-        <div className="tournament-list">
-          <h3>Past Tournaments</h3>
-          {tournaments
-            .filter((t) => t.status === 'FINISHED')
-            .map((t) => (
-              <button
-                key={t.id}
-                className="tournament-list-item"
-                onClick={async () => {
-                  const full = await apiClient.get(`/api/tournaments/${t.id}`);
-                  setActiveTournament(full);
-                }}
-              >
-                {t.name} ({t._count?.players || 0} players)
-              </button>
-            ))}
+        <div className="tournament-history">
+          <h3>Tournament History</h3>
+          <div className="tournament-history-grid">
+            {tournaments
+              .filter((t) => t.status === 'FINISHED')
+              .map((t) => (
+                <button
+                  key={t.id}
+                  className="tournament-history-card"
+                  onClick={async () => {
+                    const full = await apiClient.get(`/api/tournaments/${t.id}`);
+                    setActiveTournament(full);
+                  }}
+                >
+                  <span className="tournament-history-name">{t.name}</span>
+                  <span className="tournament-history-meta">
+                    {t._count?.players || 0} players
+                    {t.endedAt && ` · ${new Date(t.endedAt).toLocaleDateString('nb-NO', { day: 'numeric', month: 'short', year: 'numeric' })}`}
+                  </span>
+                </button>
+              ))}
+          </div>
+          {tournaments.filter((t) => t.status === 'FINISHED').length === 0 && (
+            <p className="no-history">No finished tournaments yet.</p>
+          )}
         </div>
       )}
     </div>
