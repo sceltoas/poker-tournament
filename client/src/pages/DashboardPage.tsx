@@ -271,6 +271,7 @@ export default function DashboardPage() {
                 table={table}
                 currentPlayerId={player?.id || ''}
                 isAdmin={player?.isAdmin || false}
+                maxSeats={activeTournament?.maxSeatsPerTable}
                 onEliminate={handleEliminate}
                 onSwap={player?.isAdmin ? handleSwap : undefined}
               />

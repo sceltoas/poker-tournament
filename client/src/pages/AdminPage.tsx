@@ -16,6 +16,7 @@ export default function AdminPage() {
   const [tournamentName, setTournamentName] = useState('');
   const [newPlayerName, setNewPlayerName] = useState('');
   const [newPlayerEmail, setNewPlayerEmail] = useState('');
+  const [maxSeatsPerTable, setMaxSeatsPerTable] = useState(8);
   const [creating, setCreating] = useState(false);
   const [error, setError] = useState('');
   const getAvatar = useFolk();
@@ -75,7 +76,7 @@ export default function AdminPage() {
     setError('');
 
     try {
-      const body: any = { name: tournamentName };
+      const body: any = { name: tournamentName, maxSeatsPerTable };
       if (selectedPlayerIds.size > 0) {
         body.playerIds = Array.from(selectedPlayerIds);
       }
@@ -106,6 +107,21 @@ export default function AdminPage() {
             onChange={(e) => setTournamentName(e.target.value)}
             className="tournament-name-input"
           />
+          <div className="table-size-row">
+            <label htmlFor="maxSeats">Seats per table:</label>
+            <select
+              id="maxSeats"
+              value={maxSeatsPerTable}
+              onChange={(e) => setMaxSeatsPerTable(Number(e.target.value))}
+              className="table-size-select"
+            >
+              {Array.from({ length: 11 }, (_, i) => i + 2).map((n) => (
+                <option key={n} value={n}>
+                  {n} {n === 8 ? '(default)' : ''}
+                </option>
+              ))}
+            </select>
+          </div>
         </div>
 
         <div className="admin-section">

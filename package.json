@@ -2,7 +2,7 @@
   "name": "scelto-poker-tournament",
   "private": true,
   "scripts": {
-    "dev": "pnpm --filter poker-tournament-server dev & pnpm --filter poker-tournament-client dev & wait",
+    "dev": "concurrently --kill-others -n server,client -c blue,green \"pnpm --filter poker-tournament-server dev\" \"pnpm --filter poker-tournament-client dev\"",
     "dev:server": "pnpm --filter poker-tournament-server dev",
     "dev:client": "pnpm --filter poker-tournament-client dev",
     "build": "pnpm --filter poker-tournament-client build && pnpm --filter poker-tournament-server build",
@@ -19,6 +19,7 @@
     "db:reset": "dotenv -e .env -- pnpm --filter poker-tournament-server db:reset"
   },
   "devDependencies": {
+    "concurrently": "9.2.1",
     "dotenv-cli": "11.0.0"
   }
 }

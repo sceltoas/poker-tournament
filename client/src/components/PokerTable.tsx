@@ -7,21 +7,25 @@ interface Props {
   table: TournamentTable;
   currentPlayerId: string;
   isAdmin: boolean;
+  maxSeats?: number;
   onEliminate: (playerId: string) => void;
   onSwap?: (playerId1: string, playerId2: string) => void;
 }
 
-// Positions for seats around an oval table (up to 8 seats)
-// Arranged in a circle: top, top-right, right, bottom-right, bottom, bottom-left, left, top-left
+// Positions for seats around an oval table (up to 12 seats)
 const SEAT_POSITIONS: React.CSSProperties[] = [
-  { top: '6%', left: '50%', transform: 'translate(-50%, 0)' },       // seat 1 - top center
-  { top: '14%', right: '14%', transform: 'translate(0, 0)' },        // seat 2 - top right
-  { top: '50%', right: '2%', transform: 'translate(0, -50%)' },      // seat 3 - right
-  { bottom: '14%', right: '14%', transform: 'translate(0, 0)' },     // seat 4 - bottom right
-  { bottom: '6%', left: '50%', transform: 'translate(-50%, 0)' },    // seat 5 - bottom center
-  { bottom: '14%', left: '14%', transform: 'translate(0, 0)' },      // seat 6 - bottom left
-  { top: '50%', left: '2%', transform: 'translate(0, -50%)' },       // seat 7 - left
-  { top: '14%', left: '14%', transform: 'translate(0, 0)' },         // seat 8 - top left
+  { top: '6%', left: '50%', transform: 'translate(-50%, 0)' },       // seat 1  - top center
+  { top: '14%', right: '14%', transform: 'translate(0, 0)' },        // seat 2  - top right
+  { top: '50%', right: '2%', transform: 'translate(0, -50%)' },      // seat 3  - right
+  { bottom: '14%', right: '14%', transform: 'translate(0, 0)' },     // seat 4  - bottom right
+  { bottom: '6%', left: '50%', transform: 'translate(-50%, 0)' },    // seat 5  - bottom center
+  { bottom: '14%', left: '14%', transform: 'translate(0, 0)' },      // seat 6  - bottom left
+  { top: '50%', left: '2%', transform: 'translate(0, -50%)' },       // seat 7  - left
+  { top: '14%', left: '14%', transform: 'translate(0, 0)' },         // seat 8  - top left
+  { top: '6%', left: '30%', transform: 'translate(-50%, 0)' },       // seat 9  - top left-center
+  { top: '6%', right: '30%', transform: 'translate(50%, 0)' },       // seat 10 - top right-center
+  { bottom: '6%', left: '30%', transform: 'translate(-50%, 0)' },    // seat 11 - bottom left-center
+  { bottom: '6%', right: '30%', transform: 'translate(50%, 0)' },    // seat 12 - bottom right-center
 ];
 
 function PlayerSeat({
@@ -128,9 +132,10 @@ function EmptySeat({ position }: { position: React.CSSProperties }) {
   );
 }
 
-export default function PokerTable({ table, currentPlayerId, isAdmin, onEliminate, onSwap }: Props) {
+export default function PokerTable({ table, currentPlayerId, isAdmin, maxSeats = 8, onEliminate, onSwap }: Props) {
   const activePlayers = table.players.filter((p) => p.status !== 'ELIMINATED');
   const getAvatar = useFolk();
+  const seatCount = Math.min(maxSeats, SEAT_POSITIONS.length);
 
   return (
     <div className="poker-table-wrapper">
@@ -143,8 +148,7 @@ export default function PokerTable({ table, currentPlayerId, isAdmin, onEliminat
           </div>
         </div>
 
-        {/* Render all 8 seats */}
-        {Array.from({ length: 8 }, (_, i) => {
+        {Array.from({ length: seatCount }, (_, i) => {
           const seatNum = i + 1;
           const tp = table.players.find((p) => p.seatNumber === seatNum);
 

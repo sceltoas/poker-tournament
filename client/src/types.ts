@@ -32,6 +32,7 @@ export interface Tournament {
   id: string;
   name: string;
   status: TournamentStatus;
+  maxSeatsPerTable: number;
   createdAt: string;
   startedAt: string | null;
   endedAt: string | null;

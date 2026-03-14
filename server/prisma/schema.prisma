@@ -32,12 +32,13 @@ model Player {
 }
 
 model Tournament {
-  id        String           @id @default(uuid())
-  name      String
-  status    TournamentStatus @default(REGISTRATION)
-  createdAt DateTime         @default(now())
-  startedAt DateTime?
-  endedAt   DateTime?
+  id               String           @id @default(uuid())
+  name             String
+  status           TournamentStatus @default(REGISTRATION)
+  maxSeatsPerTable Int              @default(8)
+  createdAt        DateTime         @default(now())
+  startedAt        DateTime?
+  endedAt          DateTime?
 
   tables  TournamentTable[]
   players TournamentPlayer[]

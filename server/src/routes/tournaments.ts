@@ -18,7 +18,7 @@ import { v4 as uuid } from 'uuid';
 
 const router = Router();
 
-const MERGE_THRESHOLD = 4; // Suggest merge when table has fewer than this many active players
+// Merge threshold is calculated dynamically as half of maxSeatsPerTable
 
 // ─── Helper: get full tournament state ──────────────────────────────
 async function getFullTournament(tournamentId: string) {
@@ -44,6 +44,10 @@ async function getFullTournament(tournamentId: string) {
 
 // ─── Helper: check for merge suggestions ────────────────────────────
 async function checkMergeSuggestions(io: SocketIOServer, tournamentId: string) {
+  const tournament = await prisma.tournament.findUnique({ where: { id: tournamentId } });
+  const maxSeats = tournament?.maxSeatsPerTable ?? 8;
+  const mergeThreshold = Math.ceil(maxSeats / 2);
+
   const tables = await prisma.tournamentTable.findMany({
     where: { tournamentId, isActive: true },
     include: {
@@ -56,13 +60,13 @@ async function checkMergeSuggestions(io: SocketIOServer, tournamentId: string) {
 
   if (activeTables.length <= 1) return;
 
-  const lowTables = activeTables.filter((t) => t.players.length < MERGE_THRESHOLD);
+  const lowTables = activeTables.filter((t) => t.players.length < mergeThreshold);
 
   if (lowTables.length > 0) {
     const smallest = lowTables.sort((a, b) => a.players.length - b.players.length)[0];
     const targetCandidates = activeTables
       .filter((t) => t.id !== smallest.id)
-      .map((t) => ({ ...t, room: 8 - t.players.length }))
+      .map((t) => ({ ...t, room: maxSeats - t.players.length }))
       .filter((t) => t.room >= smallest.players.length)
       .sort((a, b) => b.room - a.room);
 
@@ -150,22 +154,24 @@ router.get('/:id', authenticate, async (req, res) => {
 // ─── CREATE tournament (admin) ──────────────────────────────────────
 router.post('/', authenticate, requireAdmin, async (req: AuthRequest, res) => {
   try {
-    const { name, playerIds } = req.body as { name: string; playerIds?: string[] };
+    const { name, playerIds, maxSeatsPerTable: rawMaxSeats } = req.body as { name: string; playerIds?: string[]; maxSeatsPerTable?: number };
+    const maxSeats = Math.min(12, Math.max(2, rawMaxSeats || 8));
 
     if (!name?.trim()) {
       return res.status(400).json({ error: 'Tournament name is required' });
     }
 
-    if (playerIds && playerIds.length > 80) {
-      return res.status(400).json({ error: 'Maximum 80 players (10 tables x 8)' });
+    const maxPlayers = maxSeats * 10;
+    if (playerIds && playerIds.length > maxPlayers) {
+      return res.status(400).json({ error: `Maximum ${maxPlayers} players (10 tables x ${maxSeats})` });
     }
 
     const tournament = await prisma.tournament.create({
-      data: { name, status: 'ACTIVE', startedAt: new Date() },
+      data: { name, status: 'ACTIVE', maxSeatsPerTable: maxSeats, startedAt: new Date() },
     });
 
     if (playerIds && playerIds.length > 0) {
-      const numTables = Math.ceil(playerIds.length / 8);
+      const numTables = Math.ceil(playerIds.length / maxSeats);
       const playersPerTable = Math.ceil(playerIds.length / numTables);
 
       const tables = [];
@@ -233,8 +239,10 @@ router.post('/:id/join', authenticate, async (req: AuthRequest, res) => {
     });
     if (existing) return res.status(409).json({ error: 'Already in tournament' });
 
+    const maxSeats = tournament.maxSeatsPerTable;
+    const maxPlayers = maxSeats * 10;
     const totalPlayers = await prisma.tournamentPlayer.count({ where: { tournamentId } });
-    if (totalPlayers >= 80) return res.status(400).json({ error: 'Tournament is full' });
+    if (totalPlayers >= maxPlayers) return res.status(400).json({ error: 'Tournament is full' });
 
     // Find table with most available seats
     const tables = await prisma.tournamentTable.findMany({
@@ -243,7 +251,7 @@ router.post('/:id/join', authenticate, async (req: AuthRequest, res) => {
     });
 
     let targetTable = tables
-      .map((t) => ({ ...t, room: 8 - t.players.length }))
+      .map((t) => ({ ...t, room: maxSeats - t.players.length }))
       .filter((t) => t.room > 0)
       .sort((a, b) => b.room - a.room)[0];
 
@@ -256,7 +264,7 @@ router.post('/:id/join', authenticate, async (req: AuthRequest, res) => {
       const newTable = await prisma.tournamentTable.create({
         data: { tournamentId, tableNumber: maxTableNum + 1 },
       });
-      targetTable = { ...newTable, players: [], room: 8 };
+      targetTable = { ...newTable, players: [], room: maxSeats };
     }
 
     // Find first available seat (check ALL players at table for unique constraint)
@@ -265,7 +273,7 @@ router.post('/:id/join', authenticate, async (req: AuthRequest, res) => {
     });
     const occupiedSeats = new Set(allPlayersAtTable.map((p) => p.seatNumber));
     let seatNumber = 1;
-    while (occupiedSeats.has(seatNumber) && seatNumber <= 8) seatNumber++;
+    while (occupiedSeats.has(seatNumber) && seatNumber <= maxSeats) seatNumber++;
 
     await prisma.tournamentPlayer.create({
       data: { tournamentId, playerId, tableId: targetTable.id, seatNumber },
@@ -373,8 +381,11 @@ router.post('/:id/merge', authenticate, requireAdmin, async (req: AuthRequest, r
       return res.status(400).json({ error: 'Source table is already inactive' });
     }
 
+    const tournament = await prisma.tournament.findUnique({ where: { id: tournamentId } });
+    const maxSeats = tournament?.maxSeatsPerTable || 8;
+
     const totalPlayers = fromTable.players.length + toTable.players.length;
-    if (totalPlayers > 8) {
+    if (totalPlayers > maxSeats) {
       return res.status(400).json({ error: 'Not enough seats at destination table' });
     }
 
@@ -403,7 +414,7 @@ router.post('/:id/merge', authenticate, requireAdmin, async (req: AuthRequest, r
       });
       const occupiedSeats = new Set(remaining.map((p) => p.seatNumber));
       const availableSeats: number[] = [];
-      for (let s = 1; s <= 8; s++) {
+      for (let s = 1; s <= maxSeats; s++) {
         if (!occupiedSeats.has(s)) availableSeats.push(s);
       }
 
