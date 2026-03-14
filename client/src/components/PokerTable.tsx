@@ -12,14 +12,14 @@ interface Props {
 // Positions for seats around an oval table (up to 8 seats)
 // Arranged in a circle: top, top-right, right, bottom-right, bottom, bottom-left, left, top-left
 const SEAT_POSITIONS: React.CSSProperties[] = [
-  { top: '2%', left: '50%', transform: 'translate(-50%, 0)' },      // seat 1 - top center
-  { top: '12%', right: '5%', transform: 'translate(0, 0)' },         // seat 2 - top right
-  { top: '42%', right: '-2%', transform: 'translate(0, -50%)' },     // seat 3 - right
-  { bottom: '12%', right: '5%', transform: 'translate(0, 0)' },      // seat 4 - bottom right
-  { bottom: '2%', left: '50%', transform: 'translate(-50%, 0)' },    // seat 5 - bottom center
-  { bottom: '12%', left: '5%', transform: 'translate(0, 0)' },       // seat 6 - bottom left
-  { top: '42%', left: '-2%', transform: 'translate(0, -50%)' },      // seat 7 - left
-  { top: '12%', left: '5%', transform: 'translate(0, 0)' },          // seat 8 - top left
+  { top: '6%', left: '50%', transform: 'translate(-50%, 0)' },       // seat 1 - top center
+  { top: '14%', right: '14%', transform: 'translate(0, 0)' },        // seat 2 - top right
+  { top: '50%', right: '2%', transform: 'translate(0, -50%)' },      // seat 3 - right
+  { bottom: '14%', right: '14%', transform: 'translate(0, 0)' },     // seat 4 - bottom right
+  { bottom: '6%', left: '50%', transform: 'translate(-50%, 0)' },    // seat 5 - bottom center
+  { bottom: '14%', left: '14%', transform: 'translate(0, 0)' },      // seat 6 - bottom left
+  { top: '50%', left: '2%', transform: 'translate(0, -50%)' },       // seat 7 - left
+  { top: '14%', left: '14%', transform: 'translate(0, 0)' },         // seat 8 - top left
 ];
 
 function PlayerSeat({
@@ -86,7 +86,6 @@ export default function PokerTable({ table, currentPlayerId, isAdmin, onEliminat
 
   return (
     <div className="poker-table-wrapper">
-      <div className="table-label">Table {table.tableNumber}</div>
       <div className="poker-table">
         <div className="table-felt">
           <div className="table-center">
