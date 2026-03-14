@@ -619,8 +619,10 @@ body {
 }
 
 .player-seat.afk .seat-chip {
-  opacity: 0.6;
+  opacity: 0.4;
   border-color: var(--warning);
+  box-shadow: 0 0 0 2px var(--warning);
+  filter: grayscale(0.7);
 }
 
 .player-seat.eliminated .seat-chip {
@@ -650,8 +652,20 @@ body {
   margin-top: 2px;
 }
 
-.afk-indicator {
+.afk-overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  font-weight: 800;
   color: var(--warning);
+  background: rgba(0, 0, 0, 0.4);
+  z-index: 2;
+  letter-spacing: 2px;
+  text-shadow: 0 0 8px rgba(0, 0, 0, 0.8);
+  border-radius: 50%;
 }
 
 .eliminated-indicator {

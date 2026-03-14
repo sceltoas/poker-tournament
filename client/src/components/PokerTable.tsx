@@ -47,8 +47,8 @@ function PlayerSeat({
     >
       <div className={`seat-chip ${avatarUrl ? 'has-avatar' : ''}`}>
         {avatarUrl && <img src={avatarUrl} alt="" className="seat-avatar" />}
+        {isAfk && <span className="afk-overlay">AFK</span>}
         <span className="seat-name">{tp.player.name.split(' ')[0]}</span>
-        {isAfk && <span className="afk-indicator">AFK</span>}
         {isEliminated && <span className="eliminated-indicator">OUT</span>}
       </div>
 
