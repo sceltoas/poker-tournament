@@ -200,6 +200,7 @@ export default function DashboardPage() {
         tournament={activeTournament}
         onToggleAfk={handleToggleAfk}
         onBeerToast={handleBeerToastClick}
+        onKnockOut={() => player && handleEliminate(player.id)}
         isAfk={amIAfk || false}
         isActive={isMyTurnActive || false}
         navigate={navigate}

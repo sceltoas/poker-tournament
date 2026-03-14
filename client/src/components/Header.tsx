@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { Beer, Wifi, WifiOff, Shield, LogOut, Coffee, ArrowRight, Bell, BellOff, BellRing } from 'lucide-react';
 import { Player, Tournament } from '../types';
 import { useAuth } from '../contexts/AuthContext';
@@ -10,6 +11,7 @@ interface Props {
   tournament: Tournament | null;
   onToggleAfk: () => void;
   onBeerToast: () => void;
+  onKnockOut: () => void;
   isAfk: boolean;
   isActive: boolean;
   navigate: NavigateFunction;
@@ -20,6 +22,7 @@ export default function Header({
   tournament,
   onToggleAfk,
   onBeerToast,
+  onKnockOut,
   isAfk,
   isActive,
   navigate,
@@ -27,6 +30,7 @@ export default function Header({
   const { logout } = useAuth();
   const { connected } = useSocket();
   const { pushState, subscribe } = usePushNotifications();
+  const [showKnockOutConfirm, setShowKnockOutConfirm] = useState(false);
 
   const activePlayers = tournament?.players.filter(
     (p) => p.status === 'ACTIVE' || p.status === 'AFK'
@@ -76,14 +80,31 @@ export default function Header({
               {isAfk ? "I'm Back" : 'AFK'}
             </button>
 
-            {!player.isAdmin && isActive && (
+            {isActive && !showKnockOutConfirm && (
               <button
-                onClick={() => {/* handled in parent */}}
+                onClick={() => setShowKnockOutConfirm(true)}
                 className="btn-eliminate-self"
                 title="I'm out"
               >
                 Knocked Out
               </button>
+            )}
+            {isActive && showKnockOutConfirm && (
+              <div className="knockout-confirm">
+                <span>Are you sure?</span>
+                <button
+                  onClick={() => { onKnockOut(); setShowKnockOutConfirm(false); }}
+                  className="btn-confirm-yes"
+                >
+                  Yes, I'm out
+                </button>
+                <button
+                  onClick={() => setShowKnockOutConfirm(false)}
+                  className="btn-confirm-no"
+                >
+                  Cancel
+                </button>
+              </div>
             )}
           </>
         )}

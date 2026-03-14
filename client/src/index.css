@@ -354,6 +354,43 @@ body {
   font-size: 13px;
 }
 
+.knockout-confirm {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+
+.btn-confirm-yes {
+  padding: 6px 12px;
+  border-radius: 8px;
+  border: none;
+  background: var(--danger);
+  color: white;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.btn-confirm-yes:hover {
+  opacity: 0.85;
+}
+
+.btn-confirm-no {
+  padding: 6px 12px;
+  border-radius: 8px;
+  border: 1px solid var(--text-muted);
+  background: transparent;
+  color: var(--text-secondary);
+  cursor: pointer;
+  font-size: 13px;
+}
+
+.btn-confirm-no:hover {
+  border-color: var(--text-secondary);
+}
+
 .btn-admin {
   display: flex;
   align-items: center;
