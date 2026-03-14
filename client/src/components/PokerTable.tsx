@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { TournamentTable, TournamentPlayer } from '../types';
 import { X } from 'lucide-react';
 import { useFolk } from '../hooks/useFolk';
@@ -44,6 +44,7 @@ function PlayerSeat({
   const isEliminated = tp.status === 'ELIMINATED';
   const isAfk = tp.status === 'AFK';
   const [isDragOver, setIsDragOver] = useState(false);
+  const dragCounter = useRef(0);
 
   const canDrag = isAdmin && !isEliminated && !!onSwap;
 
@@ -60,6 +61,8 @@ function PlayerSeat({
       }}
       onDragEnd={(e) => {
         (e.currentTarget as HTMLElement).classList.remove('dragging');
+        dragCounter.current = 0;
+        setIsDragOver(false);
       }}
       onDragOver={(e) => {
         if (!canDrag) return;
@@ -69,13 +72,19 @@ function PlayerSeat({
       onDragEnter={(e) => {
         if (!canDrag) return;
         e.preventDefault();
+        dragCounter.current++;
         setIsDragOver(true);
       }}
       onDragLeave={() => {
-        setIsDragOver(false);
+        dragCounter.current--;
+        if (dragCounter.current <= 0) {
+          dragCounter.current = 0;
+          setIsDragOver(false);
+        }
       }}
       onDrop={(e) => {
         e.preventDefault();
+        dragCounter.current = 0;
         setIsDragOver(false);
         if (!canDrag) return;
         const fromPlayerId = e.dataTransfer.getData('text/plain');
