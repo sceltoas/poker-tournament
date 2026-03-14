@@ -18,9 +18,12 @@ async function scrapeFolk(): Promise<Record<string, string>> {
   html = html.replace(/&quot;/g, '"');
 
   // Extract "title": "Name" ... "assetUrl": "https://images.squarespace-cdn.com/..." pairs
-  // from Squarespace's embedded JSON data blocks
+  // from Squarespace's embedded JSON data blocks.
+  // Limit gap to 2000 chars to stay within the same entry (person entries
+  // are ~1100 chars apart; the page title "Folk" is 68k+ chars away).
+  // Require a space in the name to skip non-person titles like "Folk".
   const folkMap: Record<string, string> = {};
-  const pattern = /"title":\s*"([A-ZÀ-Ž][^"]+)"[\s\S]*?"assetUrl":\s*"(https:\/\/images\.squarespace-cdn\.com\/[^"]+)"/g;
+  const pattern = /"title":\s*"([A-ZÀ-Ž][^"]+\s[^"]+)"[\s\S]{0,2000}?"assetUrl":\s*"(https:\/\/images\.squarespace-cdn\.com\/[^"]+)"/g;
 
   let match;
   while ((match = pattern.exec(html)) !== null) {

@@ -5,15 +5,18 @@ import { api } from './useApi';
 let folkCache: Record<string, string> | null = null;
 let folkPromise: Promise<Record<string, string>> | null = null;
 
-// Normalize: lowercase, strip accents (ø→o, å→a, é→e etc.)
+// Normalize: lowercase, strip accents, collapse Norwegian digraphs
+// Handles both Unicode (å ø æ) and ASCII equivalents (aa, o/oe, ae)
 function normalize(name: string): string {
   return name
     .toLowerCase()
     .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '')
-    .replace(/ø/g, 'o')
-    .replace(/æ/g, 'ae')
-    .replace(/å/g, 'a');
+    .replace(/[\u0300-\u036f]/g, '')  // strip combining marks (å→a, é→e, ć→c)
+    .replace(/ø/g, 'o')               // ø → o
+    .replace(/æ/g, 'ae')              // æ → ae
+    .replace(/đ/g, 'd')               // đ → d (Bosnian/Croatian)
+    .replace(/aa/g, 'a')              // aa (ASCII å) → a
+    .replace(/oe/g, 'o');             // oe (ASCII ø) → o
 }
 
 interface FolkEntry {
