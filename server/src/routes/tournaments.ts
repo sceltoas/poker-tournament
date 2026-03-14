@@ -613,6 +613,55 @@ router.post('/:id/toast', authenticate, async (req: AuthRequest, res) => {
   }
 });
 
+// ─── REORDER final results (admin) ───────────────────────────────────
+router.post('/:id/reorder', authenticate, requireAdmin, async (req: AuthRequest, res) => {
+  const io: SocketIOServer = req.app.get('io');
+  const tournamentId = req.params.id as string;
+  const { fromPosition, toPosition } = req.body as { fromPosition: number; toPosition: number };
+
+  try {
+    if (!fromPosition || !toPosition || fromPosition === toPosition) {
+      return res.status(400).json({ error: 'Valid from and to positions required' });
+    }
+
+    const players = await prisma.tournamentPlayer.findMany({
+      where: { tournamentId, finishPosition: { not: null } },
+      orderBy: { finishPosition: 'asc' },
+    });
+
+    if (!players.length) {
+      return res.status(400).json({ error: 'No results to reorder' });
+    }
+
+    // Reorder: remove player from fromPosition, insert at toPosition
+    const sorted = [...players].sort((a, b) => (a.finishPosition || 0) - (b.finishPosition || 0));
+    const fromIndex = sorted.findIndex((p) => p.finishPosition === fromPosition);
+    if (fromIndex === -1) return res.status(400).json({ error: 'Invalid from position' });
+
+    const [moved] = sorted.splice(fromIndex, 1);
+    const toIndex = toPosition - 1;
+    sorted.splice(toIndex, 0, moved);
+
+    // Update all positions in a transaction
+    await prisma.$transaction(
+      sorted.map((p, i) =>
+        prisma.tournamentPlayer.update({
+          where: { id: p.id },
+          data: { finishPosition: i + 1 },
+        })
+      )
+    );
+
+    const fullTournament = await getFullTournament(tournamentId);
+    emitTournamentUpdate(io, tournamentId, fullTournament);
+
+    res.json(fullTournament);
+  } catch (error) {
+    console.error('Reorder error:', error);
+    res.status(500).json({ error: 'Failed to reorder results' });
+  }
+});
+
 // ─── GET final results ──────────────────────────────────────────────
 router.get('/:id/results', authenticate, async (req, res) => {
   const tournament = await prisma.tournament.findUnique({

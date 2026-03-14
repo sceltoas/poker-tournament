@@ -140,6 +140,15 @@ export default function DashboardPage() {
     }
   };
 
+  const handleReorder = async (fromPosition: number, toPosition: number) => {
+    if (!activeTournament) return;
+    try {
+      await apiClient.post(`/api/tournaments/${activeTournament.id}/reorder`, { fromPosition, toPosition });
+    } catch (err: any) {
+      setNotification(`Error: ${err.message}`);
+    }
+  };
+
   const handleToggleAfk = async () => {
     if (!activeTournament) return;
     try {
@@ -270,7 +279,7 @@ export default function DashboardPage() {
       )}
 
       {activeTournament?.status === 'FINISHED' ? (
-        <FinalResults tournament={activeTournament} />
+        <FinalResults tournament={activeTournament} isAdmin={player?.isAdmin} onReorder={player?.isAdmin ? handleReorder : undefined} />
       ) : (
         <>
           <div className="tables-grid">

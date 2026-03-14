@@ -1,11 +1,14 @@
+import { useState, useRef } from 'react';
 import { Tournament } from '../types';
-import { Trophy, Medal, Award } from 'lucide-react';
+import { Trophy, Medal, Award, GripVertical } from 'lucide-react';
 
 interface Props {
   tournament: Tournament;
+  isAdmin?: boolean;
+  onReorder?: (fromPosition: number, toPosition: number) => void;
 }
 
-export default function FinalResults({ tournament }: Props) {
+export default function FinalResults({ tournament, isAdmin, onReorder }: Props) {
   const results = tournament.players
     .filter((p) => p.finishPosition !== null)
     .sort((a, b) => (a.finishPosition || 999) - (b.finishPosition || 999));
@@ -13,6 +16,11 @@ export default function FinalResults({ tournament }: Props) {
   const winner = results[0];
   const second = results[1];
   const third = results[2];
+
+  const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
+  const draggedPosition = useRef<number | null>(null);
+
+  const canDrag = isAdmin && !!onReorder;
 
   return (
     <div className="final-results">
@@ -49,14 +57,48 @@ export default function FinalResults({ tournament }: Props) {
         <table>
           <thead>
             <tr>
+              {canDrag && <th></th>}
               <th>Position</th>
               <th>Player</th>
               <th>Eliminated</th>
             </tr>
           </thead>
           <tbody>
-            {results.map((p) => (
-              <tr key={p.id} className={p.finishPosition === 1 ? 'winner-row' : ''}>
+            {results.map((p, index) => (
+              <tr
+                key={p.id}
+                className={`${p.finishPosition === 1 ? 'winner-row' : ''} ${canDrag ? 'draggable-row' : ''} ${dragOverIndex === index ? 'drag-over-row' : ''}`}
+                draggable={canDrag}
+                onDragStart={() => {
+                  draggedPosition.current = p.finishPosition;
+                }}
+                onDragOver={(e) => {
+                  if (!canDrag) return;
+                  e.preventDefault();
+                  e.dataTransfer.dropEffect = 'move';
+                  setDragOverIndex(index);
+                }}
+                onDragLeave={() => {
+                  setDragOverIndex(null);
+                }}
+                onDrop={(e) => {
+                  e.preventDefault();
+                  setDragOverIndex(null);
+                  if (draggedPosition.current !== null && draggedPosition.current !== p.finishPosition) {
+                    onReorder!(draggedPosition.current, p.finishPosition!);
+                  }
+                  draggedPosition.current = null;
+                }}
+                onDragEnd={() => {
+                  setDragOverIndex(null);
+                  draggedPosition.current = null;
+                }}
+              >
+                {canDrag && (
+                  <td className="grip-cell">
+                    <GripVertical size={14} />
+                  </td>
+                )}
                 <td className="position-cell">
                   {p.finishPosition === 1 && <Trophy size={16} />}
                   #{p.finishPosition}
