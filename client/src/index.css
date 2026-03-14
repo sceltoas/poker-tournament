@@ -515,6 +515,7 @@ body {
 
 .table-felt {
   position: absolute;
+  z-index: 1;
   top: 18%;
   left: 12%;
   right: 12%;
