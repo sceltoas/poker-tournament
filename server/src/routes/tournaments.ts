@@ -151,6 +151,28 @@ router.get('/:id', authenticate, async (req, res) => {
   res.json(tournament);
 });
 
+// ─── DELETE tournament (admin) ───────────────────────────────────────
+router.delete('/:id', authenticate, requireAdmin, async (req: AuthRequest, res) => {
+  const tournamentId = req.params.id as string;
+
+  try {
+    const tournament = await prisma.tournament.findUnique({ where: { id: tournamentId } });
+    if (!tournament) return res.status(404).json({ error: 'Tournament not found' });
+
+    // Delete in order: players, tables, then tournament (cascading)
+    await prisma.$transaction([
+      prisma.tournamentPlayer.deleteMany({ where: { tournamentId } }),
+      prisma.tournamentTable.deleteMany({ where: { tournamentId } }),
+      prisma.tournament.delete({ where: { id: tournamentId } }),
+    ]);
+
+    res.json({ message: 'Tournament deleted' });
+  } catch (error) {
+    console.error('Delete tournament error:', error);
+    res.status(500).json({ error: 'Failed to delete tournament' });
+  }
+});
+
 // ─── CREATE tournament (admin) ──────────────────────────────────────
 router.post('/', authenticate, requireAdmin, async (req: AuthRequest, res) => {
   try {

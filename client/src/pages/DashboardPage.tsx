@@ -200,6 +200,17 @@ export default function DashboardPage() {
     }
   };
 
+  const handleDeleteTournament = async (tournamentId: string, name: string) => {
+    if (!confirm(`Are you sure you want to delete "${name}"? This cannot be undone.`)) return;
+    try {
+      await apiClient.del(`/api/tournaments/${tournamentId}`);
+      setTournaments((prev) => prev.filter((t) => t.id !== tournamentId));
+      setNotification(`"${name}" deleted`);
+    } catch (err: any) {
+      setNotification(`Error: ${err.message}`);
+    }
+  };
+
   if (loading) {
     return (
       <div className="loading-screen">
@@ -314,20 +325,30 @@ export default function DashboardPage() {
             {tournaments
               .filter((t) => t.status === 'FINISHED')
               .map((t) => (
-                <button
-                  key={t.id}
-                  className="tournament-history-card"
-                  onClick={async () => {
-                    const full = await apiClient.get(`/api/tournaments/${t.id}`);
-                    setActiveTournament(full);
-                  }}
-                >
-                  <span className="tournament-history-name">{t.name}</span>
-                  <span className="tournament-history-meta">
-                    {t._count?.players || 0} players
-                    {t.endedAt && ` · ${new Date(t.endedAt).toLocaleDateString('nb-NO', { day: 'numeric', month: 'short', year: 'numeric' })}`}
-                  </span>
-                </button>
+                <div key={t.id} className="tournament-history-row">
+                  <button
+                    className="tournament-history-card"
+                    onClick={async () => {
+                      const full = await apiClient.get(`/api/tournaments/${t.id}`);
+                      setActiveTournament(full);
+                    }}
+                  >
+                    <span className="tournament-history-name">{t.name}</span>
+                    <span className="tournament-history-meta">
+                      {t._count?.players || 0} players
+                      {t.endedAt && ` · ${new Date(t.endedAt).toLocaleDateString('nb-NO', { day: 'numeric', month: 'short', year: 'numeric' })}`}
+                    </span>
+                  </button>
+                  {player?.isAdmin && (
+                    <button
+                      className="btn-delete-tournament"
+                      title="Delete tournament"
+                      onClick={() => handleDeleteTournament(t.id, t.name)}
+                    >
+                      ×
+                    </button>
+                  )}
+                </div>
               ))}
           </div>
           {tournaments.filter((t) => t.status === 'FINISHED').length === 0 && (
