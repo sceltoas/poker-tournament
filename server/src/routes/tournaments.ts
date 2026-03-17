@@ -176,7 +176,7 @@ router.delete('/:id', authenticate, requireAdmin, async (req: AuthRequest, res) 
 // ─── CREATE tournament (admin) ──────────────────────────────────────
 router.post('/', authenticate, requireAdmin, async (req: AuthRequest, res) => {
   try {
-    const { name, playerIds, maxSeatsPerTable: rawMaxSeats } = req.body as { name: string; playerIds?: string[]; maxSeatsPerTable?: number };
+    const { name, playerIds, maxSeatsPerTable: rawMaxSeats, sendInvites = false } = req.body as { name: string; playerIds?: string[]; maxSeatsPerTable?: number; sendInvites?: boolean };
     const maxSeats = Math.min(12, Math.max(2, rawMaxSeats || 8));
 
     if (!name?.trim()) {
@@ -220,20 +220,22 @@ router.post('/', authenticate, requireAdmin, async (req: AuthRequest, res) => {
         });
       }
 
-      const players = await prisma.player.findMany({
-        where: { id: { in: playerIds } },
-      });
-
-      for (const player of players) {
-        const token = uuid();
-        await prisma.magicLink.create({
-          data: {
-            playerId: player.id,
-            token,
-            expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
-          },
+      if (sendInvites) {
+        const players = await prisma.player.findMany({
+          where: { id: { in: playerIds } },
         });
-        await sendMagicLink(player.email, player.name, token, name);
+
+        for (const player of players) {
+          const token = uuid();
+          await prisma.magicLink.create({
+            data: {
+              playerId: player.id,
+              token,
+              expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+            },
+          });
+          await sendMagicLink(player.email, player.name, token, name);
+        }
       }
     }
 

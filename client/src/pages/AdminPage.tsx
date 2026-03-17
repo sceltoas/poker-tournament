@@ -17,6 +17,7 @@ export default function AdminPage() {
   const [newPlayerName, setNewPlayerName] = useState('');
   const [newPlayerEmail, setNewPlayerEmail] = useState('');
   const [maxSeatsPerTable, setMaxSeatsPerTable] = useState(8);
+  const [sendInvites, setSendInvites] = useState(false);
   const [creating, setCreating] = useState(false);
   const [error, setError] = useState('');
   const getAvatar = useFolk();
@@ -76,7 +77,7 @@ export default function AdminPage() {
     setError('');
 
     try {
-      const body: any = { name: tournamentName, maxSeatsPerTable };
+      const body: any = { name: tournamentName, maxSeatsPerTable, sendInvites };
       if (selectedPlayerIds.size > 0) {
         body.playerIds = Array.from(selectedPlayerIds);
       }
@@ -122,6 +123,14 @@ export default function AdminPage() {
               ))}
             </select>
           </div>
+          <label className="toggle-row">
+            <input
+              type="checkbox"
+              checked={sendInvites}
+              onChange={(e) => setSendInvites(e.target.checked)}
+            />
+            <span>Send invite emails to players when tournament is created</span>
+          </label>
         </div>
 
         <div className="admin-section">
