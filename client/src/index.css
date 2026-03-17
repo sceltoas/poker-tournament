@@ -628,7 +628,6 @@ body {
   min-width: 72px;
   position: relative;
   transition: all 0.3s;
-  overflow: hidden;
 }
 
 .seat-chip.has-avatar {
@@ -640,6 +639,7 @@ body {
   display: flex;
   align-items: flex-end;
   justify-content: center;
+  overflow: hidden;
 }
 
 .seat-avatar {
@@ -772,6 +772,27 @@ body {
   opacity: 0;
   transition: opacity 0.2s;
   z-index: 3;
+}
+
+/* ─── Online Indicator ────────────────────────────────────────── */
+.online-dot {
+  position: absolute;
+  bottom: 2px;
+  right: 2px;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  border: 1.5px solid var(--bg-surface);
+  z-index: 4;
+}
+
+.online-dot.online {
+  background: #22c55e;
+  box-shadow: 0 0 4px #22c55e;
+}
+
+.online-dot.offline {
+  background: #6b7280;
 }
 
 /* ─── Eliminated List ─────────────────────────────────────────── */

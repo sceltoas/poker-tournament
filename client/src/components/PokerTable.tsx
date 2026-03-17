@@ -8,6 +8,7 @@ interface Props {
   currentPlayerId: string;
   isAdmin: boolean;
   maxSeats?: number;
+  onlinePlayers?: Set<string>;
   onEliminate: (playerId: string) => void;
   onReinstate?: (playerId: string) => void;
   onSwap?: (playerId1: string, playerId2: string) => void;
@@ -34,6 +35,7 @@ function PlayerSeat({
   position,
   isMe,
   isAdmin,
+  isOnline,
   avatarUrl,
   onEliminate,
   onReinstate,
@@ -43,6 +45,7 @@ function PlayerSeat({
   position: React.CSSProperties;
   isMe: boolean;
   isAdmin: boolean;
+  isOnline: boolean;
   avatarUrl?: string;
   onEliminate: (playerId: string) => void;
   onReinstate?: (playerId: string) => void;
@@ -106,6 +109,7 @@ function PlayerSeat({
         <span className="seat-name">{tp.player.name.split(' ')[0]}</span>
         {isEliminated && <span className="eliminated-indicator">OUT</span>}
       </div>
+      {!isEliminated && <span className={`online-dot ${isOnline ? 'online' : 'offline'}`} />}
 
       {!isEliminated && (isAdmin || isMe) && (
         <button
@@ -149,7 +153,7 @@ function EmptySeat({ position }: { position: React.CSSProperties }) {
   );
 }
 
-export default function PokerTable({ table, currentPlayerId, isAdmin, maxSeats = 8, onEliminate, onReinstate, onSwap }: Props) {
+export default function PokerTable({ table, currentPlayerId, isAdmin, maxSeats = 8, onlinePlayers, onEliminate, onReinstate, onSwap }: Props) {
   const activePlayers = table.players.filter((p) => p.status !== 'ELIMINATED');
   const getAvatar = useFolk();
   const seatCount = Math.min(maxSeats, SEAT_POSITIONS.length);
@@ -177,6 +181,7 @@ export default function PokerTable({ table, currentPlayerId, isAdmin, maxSeats =
                 position={SEAT_POSITIONS[i]}
                 isMe={tp.playerId === currentPlayerId}
                 isAdmin={isAdmin}
+                isOnline={onlinePlayers?.has(tp.playerId) || false}
                 avatarUrl={getAvatar(tp.player.name)}
                 onEliminate={onEliminate}
                 onReinstate={onReinstate}

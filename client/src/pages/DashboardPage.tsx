@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { useSocket } from '../contexts/SocketContext';
@@ -25,6 +25,7 @@ export default function DashboardPage() {
   const [beerToast, setBeerToast] = useState<BeerToastEvent | null>(null);
   const [notification, setNotification] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [onlinePlayerIds, setOnlinePlayerIds] = useState<string[]>([]);
 
   const loadTournaments = useCallback(async () => {
     try {
@@ -48,16 +49,16 @@ export default function DashboardPage() {
     loadTournaments();
   }, [loadTournaments]);
 
-  // Join tournament room via socket
+  // Join tournament room via socket (send playerId for online tracking)
   useEffect(() => {
     if (!socket || !activeTournament) return;
 
-    socket.emit('join-tournament', activeTournament.id);
+    socket.emit('join-tournament', activeTournament.id, player?.id);
 
     return () => {
       socket.emit('leave-tournament', activeTournament.id);
     };
-  }, [socket, activeTournament?.id]);
+  }, [socket, activeTournament?.id, player?.id]);
 
   // Socket event handlers
   useEffect(() => {
@@ -100,6 +101,10 @@ export default function DashboardPage() {
       setNotification(`${data.playerName} joined the tournament!`);
     };
 
+    const handleOnlinePlayers = (playerIds: string[]) => {
+      setOnlinePlayerIds(playerIds);
+    };
+
     socket.on('tournament-update', handleUpdate);
     socket.on('player-eliminated', handleElimination);
     socket.on('merge-suggestion', handleMergeSuggestion);
@@ -107,6 +112,7 @@ export default function DashboardPage() {
     socket.on('tables-merged', handleTablesMerged);
     socket.on('tournament-finished', handleFinished);
     socket.on('player-joined', handlePlayerJoined);
+    socket.on('online-players', handleOnlinePlayers);
 
     return () => {
       socket.off('tournament-update', handleUpdate);
@@ -116,6 +122,7 @@ export default function DashboardPage() {
       socket.off('tables-merged', handleTablesMerged);
       socket.off('tournament-finished', handleFinished);
       socket.off('player-joined', handlePlayerJoined);
+      socket.off('online-players', handleOnlinePlayers);
     };
   }, [socket, player?.isAdmin]);
 
@@ -211,6 +218,8 @@ export default function DashboardPage() {
     }
   };
 
+  const onlinePlayers = useMemo(() => new Set(onlinePlayerIds), [onlinePlayerIds]);
+
   if (loading) {
     return (
       <div className="loading-screen">
@@ -225,7 +234,6 @@ export default function DashboardPage() {
   );
   const isMyTurnActive = myTournamentPlayer?.status === 'ACTIVE';
   const amIAfk = myTournamentPlayer?.status === 'AFK';
-
   const activeTables = activeTournament?.tables.filter((t) => t.isActive) || [];
   const eliminatedPlayers = activeTournament?.players
     .filter((p) => p.status === 'ELIMINATED')
@@ -305,6 +313,7 @@ export default function DashboardPage() {
                 currentPlayerId={player?.id || ''}
                 isAdmin={player?.isAdmin || false}
                 maxSeats={activeTournament?.maxSeatsPerTable}
+                onlinePlayers={onlinePlayers}
                 onEliminate={handleEliminate}
                 onReinstate={player?.isAdmin ? handleReinstate : undefined}
                 onSwap={player?.isAdmin ? handleSwap : undefined}
