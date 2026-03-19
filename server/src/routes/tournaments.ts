@@ -533,6 +533,46 @@ router.post('/:id/swap', authenticate, requireAdmin, async (req: AuthRequest, re
   }
 });
 
+// ─── MOVE player to empty seat (admin) ──────────────────────────────
+router.post('/:id/move', authenticate, requireAdmin, async (req: AuthRequest, res) => {
+  const io: SocketIOServer = req.app.get('io');
+  const tournamentId = req.params.id as string;
+  const { playerId, toTableId, toSeat } = req.body;
+
+  try {
+    if (!playerId || !toTableId || !toSeat) {
+      return res.status(400).json({ error: 'playerId, toTableId, and toSeat are required' });
+    }
+
+    const tp = await prisma.tournamentPlayer.findUnique({
+      where: { tournamentId_playerId: { tournamentId, playerId } },
+    });
+
+    if (!tp) return res.status(404).json({ error: 'Player not found in tournament' });
+    if (tp.status === 'ELIMINATED') return res.status(400).json({ error: 'Cannot move eliminated player' });
+
+    // Check destination seat is vacant
+    const occupant = await prisma.tournamentPlayer.findFirst({
+      where: { tableId: toTableId, seatNumber: toSeat, status: { in: ['ACTIVE', 'AFK'] } },
+    });
+    if (occupant) return res.status(400).json({ error: 'Destination seat is occupied' });
+
+    // Move: detach then assign to avoid unique constraint
+    await prisma.$transaction(async (tx) => {
+      await tx.tournamentPlayer.update({ where: { id: tp.id }, data: { tableId: null } });
+      await tx.tournamentPlayer.update({ where: { id: tp.id }, data: { tableId: toTableId, seatNumber: toSeat } });
+    });
+
+    const fullTournament = await getFullTournament(tournamentId);
+    emitTournamentUpdate(io, tournamentId, fullTournament);
+
+    res.json(fullTournament);
+  } catch (error) {
+    console.error('Move error:', error);
+    res.status(500).json({ error: 'Failed to move player' });
+  }
+});
+
 // ─── REINSTATE eliminated player (admin) ─────────────────────────────
 router.post('/:id/reinstate/:playerId', authenticate, requireAdmin, async (req: AuthRequest, res) => {
   const io: SocketIOServer = req.app.get('io');

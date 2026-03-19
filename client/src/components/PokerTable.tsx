@@ -12,6 +12,7 @@ interface Props {
   onEliminate: (playerId: string) => void;
   onReinstate?: (playerId: string) => void;
   onSwap?: (playerId1: string, playerId2: string) => void;
+  onMove?: (playerId: string, toTableId: string, toSeat: number) => void;
 }
 
 // Positions for seats around an oval table (up to 12 seats)
@@ -142,10 +143,49 @@ function PlayerSeat({
   );
 }
 
-// Empty seat placeholder
-function EmptySeat({ position }: { position: React.CSSProperties }) {
+// Empty seat placeholder (also a drop target for moves)
+function EmptySeat({ position, tableId, seatNumber, onMove }: {
+  position: React.CSSProperties;
+  tableId: string;
+  seatNumber: number;
+  onMove?: (playerId: string, toTableId: string, toSeat: number) => void;
+}) {
+  const [isDragOver, setIsDragOver] = useState(false);
+  const dragCounter = useRef(0);
+
   return (
-    <div className="player-seat empty" style={{ position: 'absolute', ...position }}>
+    <div
+      className={`player-seat empty ${isDragOver ? 'drag-over' : ''}`}
+      style={{ position: 'absolute', ...position }}
+      onDragOver={(e) => {
+        if (!onMove) return;
+        e.preventDefault();
+        e.dataTransfer.dropEffect = 'move';
+      }}
+      onDragEnter={(e) => {
+        if (!onMove) return;
+        e.preventDefault();
+        dragCounter.current++;
+        setIsDragOver(true);
+      }}
+      onDragLeave={() => {
+        dragCounter.current--;
+        if (dragCounter.current <= 0) {
+          dragCounter.current = 0;
+          setIsDragOver(false);
+        }
+      }}
+      onDrop={(e) => {
+        e.preventDefault();
+        dragCounter.current = 0;
+        setIsDragOver(false);
+        if (!onMove) return;
+        const fromPlayerId = e.dataTransfer.getData('text/plain');
+        if (fromPlayerId) {
+          onMove(fromPlayerId, tableId, seatNumber);
+        }
+      }}
+    >
       <div className="seat-chip empty-chip">
         <span className="seat-name">—</span>
       </div>
@@ -153,7 +193,7 @@ function EmptySeat({ position }: { position: React.CSSProperties }) {
   );
 }
 
-export default function PokerTable({ table, currentPlayerId, isAdmin, maxSeats = 8, onlinePlayers, onEliminate, onReinstate, onSwap }: Props) {
+export default function PokerTable({ table, currentPlayerId, isAdmin, maxSeats = 8, onlinePlayers, onEliminate, onReinstate, onSwap, onMove }: Props) {
   const activePlayers = table.players.filter((p) => p.status !== 'ELIMINATED');
   const getAvatar = useFolk();
   const seatCount = Math.min(maxSeats, SEAT_POSITIONS.length);
@@ -190,7 +230,7 @@ export default function PokerTable({ table, currentPlayerId, isAdmin, maxSeats =
             );
           }
 
-          return <EmptySeat key={`empty-${seatNum}`} position={SEAT_POSITIONS[i]} />;
+          return <EmptySeat key={`empty-${seatNum}`} position={SEAT_POSITIONS[i]} tableId={table.id} seatNumber={seatNum} onMove={onMove} />;
         })}
       </div>
     </div>

@@ -184,6 +184,19 @@ export default function DashboardPage() {
     }
   };
 
+  const handleMove = async (playerId: string, toTableId: string, toSeat: number) => {
+    if (!activeTournament) return;
+    try {
+      await apiClient.post(`/api/tournaments/${activeTournament.id}/move`, {
+        playerId,
+        toTableId,
+        toSeat,
+      });
+    } catch (err: any) {
+      setNotification(`Move failed: ${err.message}`);
+    }
+  };
+
   const handleMerge = async () => {
     if (!activeTournament || !mergeSuggestion) return;
     try {
@@ -317,6 +330,7 @@ export default function DashboardPage() {
                 onEliminate={handleEliminate}
                 onReinstate={player?.isAdmin ? handleReinstate : undefined}
                 onSwap={player?.isAdmin ? handleSwap : undefined}
+                onMove={player?.isAdmin ? handleMove : undefined}
               />
             ))}
           </div>
