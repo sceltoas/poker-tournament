@@ -116,7 +116,7 @@ export default function AdminPage() {
               onChange={(e) => setMaxSeatsPerTable(Number(e.target.value))}
               className="table-size-select"
             >
-              {Array.from({ length: 11 }, (_, i) => i + 2).map((n) => (
+              {Array.from({ length: 9 }, (_, i) => i + 2).map((n) => (
                 <option key={n} value={n}>
                   {n} {n === 8 ? '(default)' : ''}
                 </option>
