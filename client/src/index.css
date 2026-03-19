@@ -300,6 +300,23 @@ body {
 }
 
 @media (max-width: 767px) {
+  .btn-afk {
+    position: fixed;
+    bottom: calc(env(safe-area-inset-bottom, 0px) + 72px);
+    right: 84px;
+    z-index: 100;
+    padding: 10px 16px;
+    height: 56px;
+    font-size: 14px;
+    border-radius: 28px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+    background: var(--bg-surface);
+  }
+
+  .btn-afk.is-afk {
+    box-shadow: 0 4px 12px rgba(245, 166, 35, 0.4);
+  }
+
   .btn-beer {
     position: fixed;
     bottom: calc(env(safe-area-inset-bottom, 0px) + 72px);
