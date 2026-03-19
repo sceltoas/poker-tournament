@@ -43,10 +43,11 @@ async function getFullTournament(tournamentId: string) {
 }
 
 // ─── Helper: check for merge suggestions ────────────────────────────
+// Suggests removing a table when all players can fit into one fewer table.
+// The smallest table is chosen for removal; its players get redistributed randomly.
 async function checkMergeSuggestions(io: SocketIOServer, tournamentId: string) {
   const tournament = await prisma.tournament.findUnique({ where: { id: tournamentId } });
   const maxSeats = tournament?.maxSeatsPerTable ?? 8;
-  const mergeThreshold = Math.ceil(maxSeats / 2);
 
   const tables = await prisma.tournamentTable.findMany({
     where: { tournamentId, isActive: true },
@@ -57,26 +58,20 @@ async function checkMergeSuggestions(io: SocketIOServer, tournamentId: string) {
   });
 
   const activeTables = tables.filter((t) => t.players.length > 0);
-
   if (activeTables.length <= 1) return;
 
-  const lowTables = activeTables.filter((t) => t.players.length < mergeThreshold);
+  const totalPlayers = activeTables.reduce((sum, t) => sum + t.players.length, 0);
+  const fewerTables = activeTables.length - 1;
 
-  if (lowTables.length > 0) {
-    const smallest = lowTables.sort((a, b) => a.players.length - b.players.length)[0];
-    const targetCandidates = activeTables
-      .filter((t) => t.id !== smallest.id)
-      .map((t) => ({ ...t, room: maxSeats - t.players.length }))
-      .filter((t) => t.room >= smallest.players.length)
-      .sort((a, b) => b.room - a.room);
-
-    if (targetCandidates.length > 0) {
-      emitMergeSuggestion(io, tournamentId, {
-        fromTable: { id: smallest.id, tableNumber: smallest.tableNumber, playerCount: smallest.players.length },
-        toTable: { id: targetCandidates[0].id, tableNumber: targetCandidates[0].tableNumber, room: targetCandidates[0].room },
-        message: `Table ${smallest.tableNumber} has only ${smallest.players.length} player(s). Merge into Table ${targetCandidates[0].tableNumber}?`,
-      });
-    }
+  // Can all players fit into one fewer table?
+  if (totalPlayers <= fewerTables * maxSeats) {
+    const smallest = [...activeTables].sort((a, b) => a.players.length - b.players.length)[0];
+    emitMergeSuggestion(io, tournamentId, {
+      removeTable: { id: smallest.id, tableNumber: smallest.tableNumber, playerCount: smallest.players.length },
+      totalPlayers,
+      remainingTables: fewerTables,
+      message: `Players can fit into ${fewerTables} table${fewerTables > 1 ? 's' : ''}. Remove Table ${smallest.tableNumber} (${smallest.players.length} players) and redistribute?`,
+    });
   }
 }
 
@@ -381,72 +376,78 @@ router.post('/:id/eliminate/:playerId', authenticate, async (req: AuthRequest, r
 });
 
 // ─── MERGE tables (admin) ───────────────────────────────────────────
+// Removes one table and randomly redistributes its players across remaining tables
 router.post('/:id/merge', authenticate, requireAdmin, async (req: AuthRequest, res) => {
   const io: SocketIOServer = req.app.get('io');
   const tournamentId = req.params.id as string;
-  const { fromTableId, toTableId } = req.body;
+  const { removeTableId } = req.body;
 
   try {
-    const fromTable = await prisma.tournamentTable.findUnique({
-      where: { id: fromTableId },
-      include: { players: { where: { status: { in: ['ACTIVE', 'AFK'] } } } },
-    });
-
-    const toTable = await prisma.tournamentTable.findUnique({
-      where: { id: toTableId },
-      include: { players: { where: { status: { in: ['ACTIVE', 'AFK'] } } } },
-    });
-
-    if (!fromTable || !toTable) {
-      return res.status(404).json({ error: 'Table not found' });
-    }
-
-    if (!fromTable.isActive) {
-      return res.status(400).json({ error: 'Source table is already inactive' });
-    }
-
     const tournament = await prisma.tournament.findUnique({ where: { id: tournamentId } });
-    const maxSeats = tournament?.maxSeatsPerTable || 8;
+    if (!tournament) return res.status(404).json({ error: 'Tournament not found' });
+    const maxSeats = tournament.maxSeatsPerTable;
 
-    const totalPlayers = fromTable.players.length + toTable.players.length;
-    if (totalPlayers > maxSeats) {
-      return res.status(400).json({ error: 'Not enough seats at destination table' });
+    const removeTable = await prisma.tournamentTable.findUnique({
+      where: { id: removeTableId },
+      include: { players: { where: { status: { in: ['ACTIVE', 'AFK'] } } } },
+    });
+
+    if (!removeTable || !removeTable.isActive) {
+      return res.status(400).json({ error: 'Table not found or already inactive' });
+    }
+
+    // Count only active/AFK players at remaining tables for capacity check
+    const remainingTables = await prisma.tournamentTable.findMany({
+      where: { tournamentId, isActive: true, id: { not: removeTableId } },
+      include: { players: { where: { status: { in: ['ACTIVE', 'AFK'] } } } },
+    });
+
+    const totalCapacity = remainingTables.length * maxSeats;
+    const currentlySeated = remainingTables.reduce((sum, t) => sum + t.players.length, 0);
+    const availableCapacity = totalCapacity - currentlySeated;
+
+    if (availableCapacity < removeTable.players.length) {
+      return res.status(400).json({ error: 'Not enough seats at remaining tables' });
     }
 
     await prisma.$transaction(async (tx) => {
-      // Detach ALL players from source table
+      // Detach ALL players from removed table (including eliminated) to free seats
       await tx.tournamentPlayer.updateMany({
-        where: { tableId: fromTableId },
+        where: { tableId: removeTableId },
         data: { tableId: null },
       });
 
-      // Detach eliminated players from destination (free their seats)
+      // Detach eliminated players from remaining tables to free their seat numbers
       await tx.tournamentPlayer.updateMany({
-        where: { tableId: toTableId, status: 'ELIMINATED' },
+        where: { tournamentId, status: 'ELIMINATED', tableId: { not: null } },
         data: { tableId: null },
       });
 
-      // Mark source table inactive
+      // Mark table inactive
       await tx.tournamentTable.update({
-        where: { id: fromTableId },
+        where: { id: removeTableId },
         data: { isActive: false },
       });
 
-      // Compute available seats at destination (only active/AFK remain)
-      const remaining = await tx.tournamentPlayer.findMany({
-        where: { tableId: toTableId },
-      });
-      const occupiedSeats = new Set(remaining.map((p) => p.seatNumber));
-      const availableSeats: number[] = [];
-      for (let s = 1; s <= maxSeats; s++) {
-        if (!occupiedSeats.has(s)) availableSeats.push(s);
+      // Now compute available seats (only active/AFK remain at tables)
+      const availableSlots: { tableId: string; seat: number }[] = [];
+      for (const table of remainingTables) {
+        const occupied = new Set(table.players.map((p) => p.seatNumber));
+        for (let s = 1; s <= maxSeats; s++) {
+          if (!occupied.has(s)) availableSlots.push({ tableId: table.id, seat: s });
+        }
       }
 
-      // Move active/AFK players from source to destination
-      for (let i = 0; i < fromTable.players.length; i++) {
+      // Shuffle for random distribution
+      const shuffledSlots = availableSlots.sort(() => Math.random() - 0.5);
+
+      // Redistribute active/AFK players from removed table
+      const playersToMove = removeTable.players;
+      for (let i = 0; i < playersToMove.length; i++) {
+        const slot = shuffledSlots[i];
         await tx.tournamentPlayer.update({
-          where: { id: fromTable.players[i].id },
-          data: { tableId: toTableId, seatNumber: availableSeats[i] },
+          where: { id: playersToMove[i].id },
+          data: { tableId: slot.tableId, seatNumber: slot.seat },
         });
       }
     });
@@ -454,8 +455,7 @@ router.post('/:id/merge', authenticate, requireAdmin, async (req: AuthRequest, r
     const fullTournament = await getFullTournament(tournamentId);
 
     emitTablesMerged(io, tournamentId, {
-      fromTableNumber: fromTable.tableNumber,
-      toTableNumber: toTable.tableNumber,
+      removedTableNumber: removeTable.tableNumber,
       tournament: fullTournament,
     });
 

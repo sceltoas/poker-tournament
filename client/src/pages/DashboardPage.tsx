@@ -89,7 +89,7 @@ export default function DashboardPage() {
     const handleTablesMerged = (data: any) => {
       setActiveTournament(data.tournament);
       setMergeSuggestion(null);
-      setNotification(`Table ${data.fromTableNumber} merged into Table ${data.toTableNumber}`);
+      setNotification(`Table ${data.removedTableNumber} removed — players redistributed`);
     };
 
     const handleFinished = (data: Tournament) => {
@@ -201,8 +201,7 @@ export default function DashboardPage() {
     if (!activeTournament || !mergeSuggestion) return;
     try {
       await apiClient.post(`/api/tournaments/${activeTournament.id}/merge`, {
-        fromTableId: mergeSuggestion.fromTable.id,
-        toTableId: mergeSuggestion.toTable.id,
+        removeTableId: mergeSuggestion.removeTable.id,
       });
     } catch (err: any) {
       setNotification(`Merge failed: ${err.message}`);

@@ -1,5 +1,5 @@
 import { MergeSuggestion } from '../types';
-import { ArrowRight, Check, X } from 'lucide-react';
+import { Check, X } from 'lucide-react';
 
 interface Props {
   suggestion: MergeSuggestion;
@@ -13,10 +13,8 @@ export default function MergeBanner({ suggestion, onAccept, onDismiss }: Props) 
       <div className="merge-content">
         <span className="merge-icon">🔀</span>
         <p>
-          <strong>Merge suggested:</strong> Table {suggestion.fromTable.tableNumber}{' '}
-          ({suggestion.fromTable.playerCount} players)
-          <ArrowRight size={16} className="merge-arrow" />
-          Table {suggestion.toTable.tableNumber}
+          <strong>Merge suggested:</strong> Remove Table {suggestion.removeTable.tableNumber}{' '}
+          ({suggestion.removeTable.playerCount} players) and redistribute to {suggestion.remainingTables} remaining table{suggestion.remainingTables > 1 ? 's' : ''}
         </p>
       </div>
       <div className="merge-actions">

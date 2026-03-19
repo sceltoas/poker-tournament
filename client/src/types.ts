@@ -41,8 +41,9 @@ export interface Tournament {
 }
 
 export interface MergeSuggestion {
-  fromTable: { id: string; tableNumber: number; playerCount: number };
-  toTable: { id: string; tableNumber: number; room: number };
+  removeTable: { id: string; tableNumber: number; playerCount: number };
+  totalPlayers: number;
+  remainingTables: number;
   message: string;
 }
 
