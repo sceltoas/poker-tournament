@@ -3,7 +3,7 @@ import { Server as SocketIOServer } from 'socket.io';
 import { prisma } from '../index';
 import { authenticate, requireAdmin, AuthRequest } from '../middleware/auth';
 import { sendMagicLink } from '../services/email';
-import { sendPushToTournamentPlayers } from '../services/pushNotification';
+import { sendPushToPlayer, sendPushToTournamentPlayers } from '../services/pushNotification';
 import {
   emitTournamentUpdate,
   emitPlayerEliminated,
@@ -410,7 +410,7 @@ router.post('/:id/merge', authenticate, requireAdmin, async (req: AuthRequest, r
       return res.status(400).json({ error: 'Not enough seats at remaining tables' });
     }
 
-    await prisma.$transaction(async (tx) => {
+    const movedAssignments = await prisma.$transaction(async (tx) => {
       // Detach ALL players from removed table (including eliminated) to free seats
       await tx.tournamentPlayer.updateMany({
         where: { tableId: removeTableId },
@@ -441,15 +441,18 @@ router.post('/:id/merge', authenticate, requireAdmin, async (req: AuthRequest, r
       // Shuffle for random distribution
       const shuffledSlots = availableSlots.sort(() => Math.random() - 0.5);
 
-      // Redistribute active/AFK players from removed table
+      // Redistribute active/AFK players from removed table, track assignments
       const playersToMove = removeTable.players;
+      const movedAssignments: { playerId: string; tableId: string }[] = [];
       for (let i = 0; i < playersToMove.length; i++) {
         const slot = shuffledSlots[i];
         await tx.tournamentPlayer.update({
           where: { id: playersToMove[i].id },
           data: { tableId: slot.tableId, seatNumber: slot.seat },
         });
+        movedAssignments.push({ playerId: playersToMove[i].playerId, tableId: slot.tableId });
       }
+      return movedAssignments;
     });
 
     const fullTournament = await getFullTournament(tournamentId);
@@ -460,6 +463,22 @@ router.post('/:id/merge', authenticate, requireAdmin, async (req: AuthRequest, r
     });
 
     emitTournamentUpdate(io, tournamentId, fullTournament);
+
+    // Send push notifications to moved players with their new table number
+    const tableNumberMap = new Map(
+      fullTournament?.tables.map((t) => [t.id, t.tableNumber]) || []
+    );
+    // movedAssignments is the return value from the transaction
+    for (const { playerId, tableId } of movedAssignments) {
+      const tableNum = tableNumberMap.get(tableId);
+      if (tableNum) {
+        sendPushToPlayer(playerId, {
+          title: 'Bordbytte!',
+          body: `Du er flyttet til Bord ${tableNum}`,
+          tag: `merge-move-${playerId}`,
+        }).catch(() => {});
+      }
+    }
 
     res.json(fullTournament);
   } catch (error) {
