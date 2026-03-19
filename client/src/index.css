@@ -884,7 +884,7 @@ body {
 .chip-leader-badge {
   position: absolute;
   top: 50%;
-  left: 50%;
+  left: 95%;
   transform: translate(-50%, -50%);
   font-size: 28px;
   line-height: 1;
