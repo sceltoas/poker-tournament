@@ -369,6 +369,22 @@ export default function DashboardPage() {
         </>
       ) : (
         <>
+          {chipLeaders.size > 0 && activeTournament && (
+            <div className="chip-leader-banner">
+              {Array.from(chipLeaders.entries())
+                .sort(([, a], [, b]) => a - b)
+                .map(([playerId, rank]) => {
+                  const tp = activeTournament.players.find((p) => p.playerId === playerId);
+                  if (!tp) return null;
+                  const medal = rank === 1 ? '🥇' : rank === 2 ? '🥈' : '🥉';
+                  return (
+                    <span key={playerId} className={`chip-leader-entry rank-${rank}`}>
+                      {medal} {tp.player.name.split(' ')[0]} — {formatChipCount(tp.chipStack!)}
+                    </span>
+                  );
+                })}
+            </div>
+          )}
           <div className="tables-grid">
             {activeTables.map((table) => (
               <PokerTable

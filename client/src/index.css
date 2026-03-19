@@ -573,6 +573,40 @@ body {
   opacity: 0.9;
 }
 
+/* ─── Chip Leader Banner ─────────────────────────────────────── */
+.chip-leader-banner {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 24px;
+  flex-wrap: wrap;
+  padding: 12px 24px;
+  margin: 0 auto;
+  max-width: 1600px;
+  background: linear-gradient(135deg, rgba(255, 215, 0, 0.08), rgba(255, 215, 0, 0.02));
+  border-bottom: 1px solid rgba(255, 215, 0, 0.15);
+}
+
+.chip-leader-entry {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  white-space: nowrap;
+}
+
+.chip-leader-entry.rank-1 {
+  color: var(--accent-gold);
+  font-size: 16px;
+}
+
+.chip-leader-entry.rank-2 {
+  color: #c0c0c0;
+}
+
+.chip-leader-entry.rank-3 {
+  color: #cd7f32;
+}
+
 /* ─── Tables Grid ─────────────────────────────────────────────── */
 .tables-grid {
   display: grid;
