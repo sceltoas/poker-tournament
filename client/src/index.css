@@ -310,7 +310,8 @@ body {
     font-size: 14px;
     border-radius: 28px;
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
-    background: var(--bg-surface);
+    background: rgba(30, 30, 30, 0.95);
+    backdrop-filter: blur(8px);
   }
 
   .btn-afk.is-afk {
