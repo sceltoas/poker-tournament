@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { useApiClient } from '../hooks/useApi';
-import { Player } from '../types';
+import { Player, ChipDenomination, DEFAULT_CHIP_DENOMINATIONS } from '../types';
 import { ArrowLeft, Plus, Users, Trophy, Shield } from 'lucide-react';
 import { useFolk } from '../hooks/useFolk';
 
@@ -18,6 +18,8 @@ export default function AdminPage() {
   const [newPlayerEmail, setNewPlayerEmail] = useState('');
   const [maxSeatsPerTable, setMaxSeatsPerTable] = useState(8);
   const [sendInvites, setSendInvites] = useState(false);
+  const [chipDenominations, setChipDenominations] = useState<ChipDenomination[]>([...DEFAULT_CHIP_DENOMINATIONS]);
+  const [showChipConfig, setShowChipConfig] = useState(false);
   const [creating, setCreating] = useState(false);
   const [error, setError] = useState('');
   const getAvatar = useFolk();
@@ -77,7 +79,7 @@ export default function AdminPage() {
     setError('');
 
     try {
-      const body: any = { name: tournamentName, maxSeatsPerTable, sendInvites };
+      const body: any = { name: tournamentName, maxSeatsPerTable, sendInvites, chipDenominations };
       if (selectedPlayerIds.size > 0) {
         body.playerIds = Array.from(selectedPlayerIds);
       }
@@ -131,6 +133,68 @@ export default function AdminPage() {
             />
             <span>Send invite emails to players when tournament is created</span>
           </label>
+          <button
+            className="btn-secondary chip-config-toggle"
+            onClick={() => setShowChipConfig(!showChipConfig)}
+            type="button"
+          >
+            {showChipConfig ? '▾' : '▸'} Chip Denominations
+          </button>
+          {showChipConfig && (
+            <div className="chip-config">
+              {chipDenominations.map((d, i) => (
+                <div key={i} className="chip-config-row">
+                  <input
+                    type="color"
+                    value={d.color}
+                    onChange={(e) => {
+                      const next = [...chipDenominations];
+                      next[i] = { ...next[i], color: e.target.value };
+                      setChipDenominations(next);
+                    }}
+                    className="chip-config-color"
+                  />
+                  <input
+                    type="text"
+                    value={d.label}
+                    onChange={(e) => {
+                      const next = [...chipDenominations];
+                      next[i] = { ...next[i], label: e.target.value };
+                      setChipDenominations(next);
+                    }}
+                    className="chip-config-label"
+                    placeholder="Label"
+                  />
+                  <input
+                    type="number"
+                    value={d.value}
+                    onChange={(e) => {
+                      const next = [...chipDenominations];
+                      next[i] = { ...next[i], value: parseInt(e.target.value, 10) || 0 };
+                      setChipDenominations(next);
+                    }}
+                    className="chip-config-value"
+                    placeholder="Value"
+                    min="1"
+                  />
+                  <button
+                    className="chip-config-remove"
+                    onClick={() => setChipDenominations(chipDenominations.filter((_, j) => j !== i))}
+                    type="button"
+                  >
+                    ×
+                  </button>
+                </div>
+              ))}
+              <button
+                className="btn-secondary"
+                onClick={() => setChipDenominations([...chipDenominations, { label: '', value: 1, color: '#888888' }])}
+                type="button"
+              >
+                + Add Denomination
+              </button>
+            </div>
+          )}
         </div>
 
         <div className="admin-section">

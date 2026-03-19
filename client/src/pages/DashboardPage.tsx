@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { useSocket } from '../contexts/SocketContext';
 import { useApiClient } from '../hooks/useApi';
-import { Tournament, MergeSuggestion, BeerToastEvent, EliminationEvent } from '../types';
+import { Tournament, TournamentPlayer, MergeSuggestion, BeerToastEvent, EliminationEvent, ChipLeaderChangeEvent } from '../types';
 import PokerTable from '../components/PokerTable';
 import EliminatedList from '../components/EliminatedList';
 import FinalResults from '../components/FinalResults';
@@ -11,7 +11,27 @@ import MergeBanner from '../components/MergeBanner';
 import BeerToastOverlay from '../components/BeerToastOverlay';
 import NotificationToast from '../components/NotificationToast';
 import Header from '../components/Header';
+import ChipInputModal, { formatChipCount } from '../components/ChipInputModal';
 import plingSfx from '../assets/pling.mp3';
+
+function computeChipLeaders(players: TournamentPlayer[]): Map<string, 1 | 2 | 3> {
+  const withChips = players
+    .filter((p) => p.status !== 'ELIMINATED' && p.chipStack != null && p.chipStack > 0)
+    .sort((a, b) => (b.chipStack ?? 0) - (a.chipStack ?? 0));
+
+  const leaderMap = new Map<string, 1 | 2 | 3>();
+  let rank = 0;
+  let prevChips = -1;
+  for (const p of withChips) {
+    if (p.chipStack !== prevChips) {
+      rank++;
+      prevChips = p.chipStack!;
+    }
+    if (rank <= 3) leaderMap.set(p.playerId, rank as 1 | 2 | 3);
+    else break;
+  }
+  return leaderMap;
+}
 
 export default function DashboardPage() {
   const { player, token } = useAuth();
@@ -26,6 +46,7 @@ export default function DashboardPage() {
   const [notification, setNotification] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [onlinePlayerIds, setOnlinePlayerIds] = useState<string[]>([]);
+  const [chipModalTarget, setChipModalTarget] = useState<{ playerId: string; playerName: string; currentChips: number | null } | null>(null);
 
   const loadTournaments = useCallback(async () => {
     try {
@@ -105,6 +126,10 @@ export default function DashboardPage() {
       setOnlinePlayerIds(playerIds);
     };
 
+    const handleChipLeaderChange = (data: ChipLeaderChangeEvent) => {
+      setNotification(`🥇 ${data.playerName} is the new chip leader! (${formatChipCount(data.chipStack)})`);
+    };
+
     socket.on('tournament-update', handleUpdate);
     socket.on('player-eliminated', handleElimination);
     socket.on('merge-suggestion', handleMergeSuggestion);
@@ -113,6 +138,7 @@ export default function DashboardPage() {
     socket.on('tournament-finished', handleFinished);
     socket.on('player-joined', handlePlayerJoined);
     socket.on('online-players', handleOnlinePlayers);
+    socket.on('chip-leader-change', handleChipLeaderChange);
 
     return () => {
       socket.off('tournament-update', handleUpdate);
@@ -123,6 +149,7 @@ export default function DashboardPage() {
       socket.off('tournament-finished', handleFinished);
       socket.off('player-joined', handlePlayerJoined);
       socket.off('online-players', handleOnlinePlayers);
+      socket.off('chip-leader-change', handleChipLeaderChange);
     };
   }, [socket, player?.isAdmin]);
 
@@ -197,6 +224,26 @@ export default function DashboardPage() {
     }
   };
 
+  const handleSetChips = async (chipStack: number) => {
+    if (!activeTournament || !chipModalTarget) return;
+    try {
+      await apiClient.post(`/api/tournaments/${activeTournament.id}/chips`, {
+        chipStack,
+        targetPlayerId: chipModalTarget.playerId !== player?.id ? chipModalTarget.playerId : undefined,
+      });
+      setChipModalTarget(null);
+    } catch (err: any) {
+      setNotification(`Error: ${err.message}`);
+    }
+  };
+
+  const handleChipClick = (playerId: string) => {
+    const tp = activeTournament?.players.find((p) => p.playerId === playerId);
+    if (tp) {
+      setChipModalTarget({ playerId, playerName: tp.player.name, currentChips: tp.chipStack ?? null });
+    }
+  };
+
   const handleMerge = async () => {
     if (!activeTournament || !mergeSuggestion) return;
     try {
@@ -231,6 +278,10 @@ export default function DashboardPage() {
   };
 
   const onlinePlayers = useMemo(() => new Set(onlinePlayerIds), [onlinePlayerIds]);
+  const chipLeaders = useMemo(() => {
+    if (!activeTournament) return new Map<string, 1 | 2 | 3>();
+    return computeChipLeaders(activeTournament.players);
+  }, [activeTournament]);
 
   if (loading) {
     return (
@@ -259,6 +310,7 @@ export default function DashboardPage() {
         onToggleAfk={handleToggleAfk}
         onBeerToast={handleBeerToastClick}
         onKnockOut={() => player && handleEliminate(player.id)}
+        onChipClick={(isMyTurnActive || amIAfk) ? () => player && handleChipClick(player.id) : undefined}
         isAfk={amIAfk || false}
         isActive={isMyTurnActive || false}
         navigate={navigate}
@@ -326,10 +378,12 @@ export default function DashboardPage() {
                 isAdmin={player?.isAdmin || false}
                 maxSeats={activeTournament?.maxSeatsPerTable}
                 onlinePlayers={onlinePlayers}
+                chipLeaders={chipLeaders}
                 onEliminate={handleEliminate}
                 onReinstate={player?.isAdmin ? handleReinstate : undefined}
                 onSwap={player?.isAdmin ? handleSwap : undefined}
                 onMove={player?.isAdmin ? handleMove : undefined}
+                onChipClick={handleChipClick}
               />
             ))}
           </div>
@@ -338,6 +392,17 @@ export default function DashboardPage() {
             <EliminatedList players={eliminatedPlayers} />
           )}
         </>
+      )}
+
+      {chipModalTarget && (
+        <ChipInputModal
+          isOpen={true}
+          currentChipStack={chipModalTarget.currentChips}
+          playerName={chipModalTarget.playerName}
+          denominations={activeTournament?.chipDenominations}
+          onSubmit={handleSetChips}
+          onClose={() => setChipModalTarget(null)}
+        />
       )}
 
       {!activeTournament && tournaments.length > 0 && (

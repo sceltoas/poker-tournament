@@ -96,3 +96,7 @@ export function emitTournamentFinished(io: SocketIOServer, tournamentId: string,
 export function emitPlayerJoined(io: SocketIOServer, tournamentId: string, data: any) {
   io.to(`tournament:${tournamentId}`).emit('player-joined', data);
 }
+
+export function emitChipLeaderChange(io: SocketIOServer, tournamentId: string, data: any) {
+  io.to(`tournament:${tournamentId}`).emit('chip-leader-change', data);
+}

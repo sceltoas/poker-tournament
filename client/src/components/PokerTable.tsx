@@ -2,6 +2,7 @@ import { useState, useRef } from 'react';
 import { TournamentTable, TournamentPlayer } from '../types';
 import { X, RotateCcw } from 'lucide-react';
 import { useFolk } from '../hooks/useFolk';
+import { formatChipCount } from './ChipInputModal';
 
 interface Props {
   table: TournamentTable;
@@ -9,10 +10,12 @@ interface Props {
   isAdmin: boolean;
   maxSeats?: number;
   onlinePlayers?: Set<string>;
+  chipLeaders?: Map<string, 1 | 2 | 3>;
   onEliminate: (playerId: string) => void;
   onReinstate?: (playerId: string) => void;
   onSwap?: (playerId1: string, playerId2: string) => void;
   onMove?: (playerId: string, toTableId: string, toSeat: number) => void;
+  onChipClick?: (playerId: string) => void;
 }
 
 // Positions for seats around an oval table (up to 12 seats)
@@ -31,26 +34,32 @@ const SEAT_POSITIONS: React.CSSProperties[] = [
   { bottom: '6%', right: '30%', transform: 'translate(50%, 0)' },    // seat 12 - bottom right-center
 ];
 
+const MEDAL = { 1: '🥇', 2: '🥈', 3: '🥉' } as const;
+
 function PlayerSeat({
   tp,
   position,
   isMe,
   isAdmin,
   isOnline,
+  leaderRank,
   avatarUrl,
   onEliminate,
   onReinstate,
   onSwap,
+  onChipClick,
 }: {
   tp: TournamentPlayer;
   position: React.CSSProperties;
   isMe: boolean;
   isAdmin: boolean;
   isOnline: boolean;
+  leaderRank?: 1 | 2 | 3;
   avatarUrl?: string;
   onEliminate: (playerId: string) => void;
   onReinstate?: (playerId: string) => void;
   onSwap?: (playerId1: string, playerId2: string) => void;
+  onChipClick?: (playerId: string) => void;
 }) {
   const isEliminated = tp.status === 'ELIMINATED';
   const isAfk = tp.status === 'AFK';
@@ -111,6 +120,15 @@ function PlayerSeat({
         {isEliminated && <span className="eliminated-indicator">OUT</span>}
       </div>
       {!isEliminated && <span className={`online-dot ${isOnline ? 'online' : 'offline'}`} />}
+      {leaderRank && <span className="chip-leader-badge">{MEDAL[leaderRank]}</span>}
+      {!isEliminated && (
+        <span
+          className={`chip-count ${(isMe || isAdmin) && onChipClick ? 'clickable' : ''}`}
+          onClick={(e) => { if ((isMe || isAdmin) && onChipClick) { e.stopPropagation(); onChipClick(tp.playerId); } }}
+        >
+          {tp.chipStack != null && tp.chipStack > 0 ? formatChipCount(tp.chipStack) : (isMe || isAdmin) ? '💰' : ''}
+        </span>
+      )}
 
       {!isEliminated && (isAdmin || isMe) && (
         <button
@@ -193,7 +211,7 @@ function EmptySeat({ position, tableId, seatNumber, onMove }: {
   );
 }
 
-export default function PokerTable({ table, currentPlayerId, isAdmin, maxSeats = 8, onlinePlayers, onEliminate, onReinstate, onSwap, onMove }: Props) {
+export default function PokerTable({ table, currentPlayerId, isAdmin, maxSeats = 8, onlinePlayers, chipLeaders, onEliminate, onReinstate, onSwap, onMove, onChipClick }: Props) {
   const activePlayers = table.players.filter((p) => p.status !== 'ELIMINATED');
   const getAvatar = useFolk();
   const seatCount = Math.min(maxSeats, SEAT_POSITIONS.length);
@@ -222,10 +240,12 @@ export default function PokerTable({ table, currentPlayerId, isAdmin, maxSeats =
                 isMe={tp.playerId === currentPlayerId}
                 isAdmin={isAdmin}
                 isOnline={onlinePlayers?.has(tp.playerId) || false}
+                leaderRank={chipLeaders?.get(tp.playerId)}
                 avatarUrl={getAvatar(tp.player.name)}
                 onEliminate={onEliminate}
                 onReinstate={onReinstate}
                 onSwap={onSwap}
+                onChipClick={onChipClick}
               />
             );
           }

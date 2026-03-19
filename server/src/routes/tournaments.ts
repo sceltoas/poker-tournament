@@ -13,6 +13,7 @@ import {
   emitTablesMerged,
   emitTournamentFinished,
   emitPlayerJoined,
+  emitChipLeaderChange,
 } from '../services/websocket';
 import { v4 as uuid } from 'uuid';
 
@@ -171,7 +172,7 @@ router.delete('/:id', authenticate, requireAdmin, async (req: AuthRequest, res) 
 // ─── CREATE tournament (admin) ──────────────────────────────────────
 router.post('/', authenticate, requireAdmin, async (req: AuthRequest, res) => {
   try {
-    const { name, playerIds, maxSeatsPerTable: rawMaxSeats, sendInvites = false } = req.body as { name: string; playerIds?: string[]; maxSeatsPerTable?: number; sendInvites?: boolean };
+    const { name, playerIds, maxSeatsPerTable: rawMaxSeats, sendInvites = false, chipDenominations } = req.body as { name: string; playerIds?: string[]; maxSeatsPerTable?: number; sendInvites?: boolean; chipDenominations?: any };
     const maxSeats = Math.min(12, Math.max(2, rawMaxSeats || 8));
 
     if (!name?.trim()) {
@@ -184,7 +185,13 @@ router.post('/', authenticate, requireAdmin, async (req: AuthRequest, res) => {
     }
 
     const tournament = await prisma.tournament.create({
-      data: { name, status: 'ACTIVE', maxSeatsPerTable: maxSeats, startedAt: new Date() },
+      data: {
+        name,
+        status: 'ACTIVE',
+        maxSeatsPerTable: maxSeats,
+        chipDenominations: chipDenominations || undefined,
+        startedAt: new Date(),
+      },
     });
 
     if (playerIds && playerIds.length > 0) {
@@ -668,6 +675,79 @@ router.post('/:id/afk', authenticate, async (req: AuthRequest, res) => {
     res.json({ status: newStatus });
   } catch (error) {
     res.status(500).json({ error: 'Failed to toggle AFK' });
+  }
+});
+
+// ─── UPDATE CHIP STACK ──────────────────────────────────────────────
+router.post('/:id/chips', authenticate, async (req: AuthRequest, res) => {
+  const io: SocketIOServer = req.app.get('io');
+  const tournamentId = req.params.id as string;
+  const { chipStack, targetPlayerId } = req.body as { chipStack: number; targetPlayerId?: string };
+
+  try {
+    // Determine which player to update
+    const playerId = targetPlayerId || req.playerId!;
+
+    // If setting someone else's chips, require admin
+    if (targetPlayerId && targetPlayerId !== req.playerId && !req.isAdmin) {
+      return res.status(403).json({ error: 'Only admin can set other players\' chips' });
+    }
+
+    if (chipStack == null || chipStack < 0 || !Number.isInteger(chipStack)) {
+      return res.status(400).json({ error: 'chipStack must be a non-negative integer' });
+    }
+
+    const tp = await prisma.tournamentPlayer.findUnique({
+      where: { tournamentId_playerId: { tournamentId, playerId } },
+      include: { player: true },
+    });
+
+    if (!tp || tp.status === 'ELIMINATED') {
+      return res.status(400).json({ error: 'Player not active in tournament' });
+    }
+
+    // Get current chip leader BEFORE update
+    const prevLeader = await prisma.tournamentPlayer.findFirst({
+      where: { tournamentId, status: { in: ['ACTIVE', 'AFK'] }, chipStack: { not: null, gt: 0 } },
+      orderBy: { chipStack: 'desc' },
+      include: { player: { select: { id: true, name: true } } },
+    });
+
+    // Update chip stack
+    await prisma.tournamentPlayer.update({
+      where: { id: tp.id },
+      data: { chipStack: chipStack > 0 ? chipStack : null },
+    });
+
+    // Get new chip leader AFTER update
+    const newLeader = await prisma.tournamentPlayer.findFirst({
+      where: { tournamentId, status: { in: ['ACTIVE', 'AFK'] }, chipStack: { not: null, gt: 0 } },
+      orderBy: { chipStack: 'desc' },
+      include: { player: { select: { id: true, name: true } } },
+    });
+
+    // Emit chip leader change if #1 changed
+    if (newLeader && (!prevLeader || newLeader.playerId !== prevLeader.playerId)) {
+      emitChipLeaderChange(io, tournamentId, {
+        playerId: newLeader.playerId,
+        playerName: newLeader.player.name,
+        chipStack: newLeader.chipStack,
+      });
+
+      sendPushToTournamentPlayers(tournamentId, {
+        title: 'New Chip Leader!',
+        body: `${newLeader.player.name} leads with ${newLeader.chipStack!.toLocaleString()} chips`,
+        tag: 'chip-leader',
+      }, newLeader.playerId).catch(() => {});
+    }
+
+    const fullTournament = await getFullTournament(tournamentId);
+    emitTournamentUpdate(io, tournamentId, fullTournament);
+
+    res.json({ chipStack: chipStack > 0 ? chipStack : null });
+  } catch (error) {
+    console.error('Chip stack error:', error);
+    res.status(500).json({ error: 'Failed to update chip stack' });
   }
 });
 

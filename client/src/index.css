@@ -303,7 +303,7 @@ body {
   .btn-afk {
     position: fixed;
     bottom: calc(env(safe-area-inset-bottom, 0px) + 72px);
-    right: 84px;
+    right: 148px;
     z-index: 100;
     padding: 10px 16px;
     height: 56px;
@@ -316,6 +316,29 @@ body {
 
   .btn-afk.is-afk {
     box-shadow: 0 4px 12px rgba(245, 166, 35, 0.4);
+  }
+
+  .btn-chips {
+    position: fixed;
+    bottom: calc(env(safe-area-inset-bottom, 0px) + 72px);
+    right: 84px;
+    z-index: 100;
+    width: 56px;
+    height: 56px;
+    border-radius: 50%;
+    border: none;
+    background: rgba(30, 30, 30, 0.95);
+    backdrop-filter: blur(8px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+    font-size: 22px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .btn-chips:active {
+    transform: scale(0.95);
   }
 
   .btn-beer {
@@ -335,6 +358,22 @@ body {
   .btn-beer:active {
     transform: scale(0.95);
   }
+}
+
+.btn-chips {
+  padding: 6px 10px;
+  border-radius: 8px;
+  border: 1px solid var(--text-muted);
+  background: transparent;
+  cursor: pointer;
+  font-size: 24px;
+  transition: all 0.2s;
+  line-height: 1;
+}
+
+.btn-chips:hover {
+  border-color: var(--accent-gold);
+  transform: scale(1.1);
 }
 
 .btn-afk {
@@ -813,6 +852,265 @@ body {
   background: #6b7280;
 }
 
+/* ─── Chip Stack Display ─────────────────────────────────────── */
+.chip-count {
+  position: absolute;
+  top: -6px;
+  left: -6px;
+  font-size: 9px;
+  color: var(--accent-gold);
+  font-weight: 700;
+  letter-spacing: 0.3px;
+  line-height: 1;
+  background: rgba(40, 40, 50, 0.85);
+  padding: 2px 4px;
+  border-radius: 4px;
+  z-index: 5;
+  white-space: nowrap;
+}
+
+.chip-count:empty {
+  display: none;
+}
+
+.chip-count.clickable {
+  cursor: pointer;
+}
+
+.chip-count.clickable:hover {
+  filter: brightness(1.3);
+}
+
+.chip-leader-badge {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  font-size: 28px;
+  line-height: 1;
+  z-index: 5;
+  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.7));
+  pointer-events: none;
+}
+
+/* ─── Chip Input Modal ───────────────────────────────────────── */
+.chip-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.6);
+  z-index: 1000;
+}
+
+.chip-input-modal {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  max-height: 70vh;
+  overflow-y: auto;
+  background: var(--bg-surface);
+  border-radius: 16px 16px 0 0;
+  padding: 20px;
+  z-index: 1001;
+  animation: chip-modal-slide-up 0.25s ease-out;
+}
+
+@keyframes chip-modal-slide-up {
+  from { transform: translateY(100%); }
+  to { transform: translateY(0); }
+}
+
+.chip-modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+}
+
+.chip-modal-header h3 {
+  margin: 0;
+  font-size: 16px;
+  color: var(--text-primary);
+}
+
+.chip-modal-close {
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  font-size: 24px;
+  cursor: pointer;
+  padding: 4px 8px;
+  line-height: 1;
+}
+
+.chip-mode-tabs {
+  display: flex;
+  gap: 4px;
+  margin-bottom: 16px;
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 8px;
+  padding: 3px;
+}
+
+.chip-mode-tab {
+  flex: 1;
+  padding: 8px;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: 13px;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.chip-mode-tab.active {
+  background: var(--accent-gold);
+  color: var(--bg-dark);
+  font-weight: 600;
+}
+
+.chip-calculator {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.chip-denom-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 0;
+}
+
+.chip-circle {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.3);
+}
+
+.chip-denom-label {
+  font-size: 13px;
+  color: var(--text-primary);
+  min-width: 48px;
+}
+
+.chip-denom-value {
+  font-size: 11px;
+  color: var(--text-muted);
+  min-width: 28px;
+}
+
+.chip-denom-controls {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-left: auto;
+}
+
+.chip-btn-minus,
+.chip-btn-plus {
+  width: 44px;
+  height: 44px;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  background: var(--bg-dark);
+  color: var(--text-primary);
+  font-size: 20px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.15s;
+}
+
+.chip-btn-minus:hover:not(:disabled),
+.chip-btn-plus:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.chip-btn-minus:disabled {
+  opacity: 0.3;
+  cursor: default;
+}
+
+.chip-denom-count {
+  min-width: 32px;
+  text-align: center;
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.chip-denom-subtotal {
+  min-width: 48px;
+  text-align: right;
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+.chip-total {
+  padding: 12px 0;
+  text-align: center;
+  font-size: 20px;
+  color: var(--accent-gold);
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+  margin-top: 4px;
+}
+
+.chip-direct {
+  padding: 16px 0;
+}
+
+.chip-direct-input {
+  width: 100%;
+  padding: 14px;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  background: var(--bg-dark);
+  color: var(--text-primary);
+  font-size: 24px;
+  text-align: center;
+  font-weight: 600;
+}
+
+.chip-direct-input:focus {
+  outline: none;
+  border-color: var(--accent-gold);
+}
+
+.chip-direct-preview {
+  text-align: center;
+  margin-top: 8px;
+  font-size: 14px;
+  color: var(--accent-gold);
+}
+
+.chip-submit-btn {
+  width: 100%;
+  padding: 14px;
+  margin-top: 12px;
+  border: none;
+  border-radius: 10px;
+  background: var(--accent-gold);
+  color: var(--bg-dark);
+  font-size: 16px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: opacity 0.15s;
+}
+
+.chip-submit-btn:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.chip-submit-btn:hover:not(:disabled) {
+  opacity: 0.9;
+}
+
 /* ─── Eliminated List ─────────────────────────────────────────── */
 .eliminated-list {
   padding: 24px;
@@ -1265,6 +1563,72 @@ body {
   height: 18px;
   accent-color: var(--accent-red);
   cursor: pointer;
+}
+
+.chip-config-toggle {
+  margin-top: 12px;
+  font-size: 13px;
+  text-align: left;
+}
+
+.chip-config {
+  margin-top: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px;
+  background: rgba(255, 255, 255, 0.03);
+  border-radius: 8px;
+}
+
+.chip-config-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.chip-config-color {
+  width: 32px;
+  height: 32px;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  background: none;
+  padding: 0;
+}
+
+.chip-config-label {
+  flex: 1;
+  padding: 6px 10px;
+  border-radius: 6px;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  background: var(--bg-dark);
+  color: var(--text-primary);
+  font-size: 13px;
+}
+
+.chip-config-value {
+  width: 70px;
+  padding: 6px 10px;
+  border-radius: 6px;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  background: var(--bg-dark);
+  color: var(--text-primary);
+  font-size: 13px;
+  text-align: center;
+}
+
+.chip-config-remove {
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  font-size: 18px;
+  cursor: pointer;
+  padding: 4px 8px;
+}
+
+.chip-config-remove:hover {
+  color: var(--accent-red);
 }
 
 .player-grid {

@@ -35,10 +35,11 @@ model Tournament {
   id               String           @id @default(uuid())
   name             String
   status           TournamentStatus @default(REGISTRATION)
-  maxSeatsPerTable Int              @default(8)
-  createdAt        DateTime         @default(now())
-  startedAt        DateTime?
-  endedAt          DateTime?
+  maxSeatsPerTable  Int              @default(8)
+  chipDenominations Json?
+  createdAt         DateTime         @default(now())
+  startedAt         DateTime?
+  endedAt           DateTime?
 
   tables  TournamentTable[]
   players TournamentPlayer[]
@@ -66,6 +67,7 @@ model TournamentPlayer {
   tableId        String?
   seatNumber     Int
   status         PlayerStatus @default(ACTIVE)
+  chipStack      Int?
   eliminatedAt   DateTime?
   finishPosition Int?
 

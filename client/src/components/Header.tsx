@@ -12,6 +12,7 @@ interface Props {
   onToggleAfk: () => void;
   onBeerToast: () => void;
   onKnockOut: () => void;
+  onChipClick?: () => void;
   isAfk: boolean;
   isActive: boolean;
   navigate: NavigateFunction;
@@ -23,6 +24,7 @@ export default function Header({
   onToggleAfk,
   onBeerToast,
   onKnockOut,
+  onChipClick,
   isAfk,
   isActive,
   navigate,
@@ -70,6 +72,16 @@ export default function Header({
             >
               <Beer size={20} />
             </button>
+
+            {onChipClick && (
+              <button
+                onClick={onChipClick}
+                className="btn-chips"
+                title="Set chip count"
+              >
+                💰
+              </button>
+            )}
 
             <button
               onClick={onToggleAfk}
