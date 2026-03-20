@@ -14,6 +14,34 @@ import Header from '../components/Header';
 import ChipInputModal, { formatChipCount } from '../components/ChipInputModal';
 import plingSfx from '../assets/pling.mp3';
 
+// Compute merge possibility from tournament state (client-side, always available)
+function computeMergeSuggestion(tournament: Tournament | null): MergeSuggestion | null {
+  if (!tournament || tournament.status !== 'ACTIVE') return null;
+
+  const activeTables = tournament.tables.filter((t) => t.isActive);
+  if (activeTables.length <= 1) return null;
+
+  const maxSeats = tournament.maxSeatsPerTable;
+  const tablesWithCounts = activeTables.map((t) => ({
+    ...t,
+    activeCount: t.players.filter((p) => p.status !== 'ELIMINATED').length,
+  }));
+
+  const totalPlayers = tablesWithCounts.reduce((sum, t) => sum + t.activeCount, 0);
+  const fewerTables = activeTables.length - 1;
+
+  if (totalPlayers <= fewerTables * maxSeats) {
+    const smallest = [...tablesWithCounts].sort((a, b) => a.activeCount - b.activeCount)[0];
+    return {
+      removeTable: { id: smallest.id, tableNumber: smallest.tableNumber, playerCount: smallest.activeCount },
+      totalPlayers,
+      remainingTables: fewerTables,
+      message: `Players can fit into ${fewerTables} table${fewerTables > 1 ? 's' : ''}. Remove Table ${smallest.tableNumber} (${smallest.activeCount} players) and redistribute?`,
+    };
+  }
+  return null;
+}
+
 function computeChipLeaders(players: TournamentPlayer[]): Map<string, 1 | 2 | 3> {
   const withChips = players
     .filter((p) => p.status !== 'ELIMINATED' && p.chipStack != null && p.chipStack > 0)
@@ -41,7 +69,7 @@ export default function DashboardPage() {
 
   const [tournaments, setTournaments] = useState<any[]>([]);
   const [activeTournament, setActiveTournament] = useState<Tournament | null>(null);
-  const [mergeSuggestion, setMergeSuggestion] = useState<MergeSuggestion | null>(null);
+  const [mergeDismissedTableId, setMergeDismissedTableId] = useState<string | null>(null);
   const [beerToast, setBeerToast] = useState<BeerToastEvent | null>(null);
   const [notification, setNotification] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -93,12 +121,6 @@ export default function DashboardPage() {
       setNotification(`${data.playerName} eliminated! (#${data.finishPosition}) — ${data.remaining} players left`);
     };
 
-    const handleMergeSuggestion = (data: MergeSuggestion) => {
-      if (player?.isAdmin) {
-        setMergeSuggestion(data);
-      }
-    };
-
     const handleBeerToast = (data: BeerToastEvent) => {
       setBeerToast(data);
       setTimeout(() => setBeerToast(null), 4000);
@@ -109,7 +131,7 @@ export default function DashboardPage() {
 
     const handleTablesMerged = (data: any) => {
       setActiveTournament(data.tournament);
-      setMergeSuggestion(null);
+      setMergeDismissedTableId(null); // Reset dismiss so new merge possibility shows
       setNotification(`Table ${data.removedTableNumber} removed — players redistributed`);
     };
 
@@ -132,7 +154,6 @@ export default function DashboardPage() {
 
     socket.on('tournament-update', handleUpdate);
     socket.on('player-eliminated', handleElimination);
-    socket.on('merge-suggestion', handleMergeSuggestion);
     socket.on('beer-toast', handleBeerToast);
     socket.on('tables-merged', handleTablesMerged);
     socket.on('tournament-finished', handleFinished);
@@ -143,7 +164,6 @@ export default function DashboardPage() {
     return () => {
       socket.off('tournament-update', handleUpdate);
       socket.off('player-eliminated', handleElimination);
-      socket.off('merge-suggestion', handleMergeSuggestion);
       socket.off('beer-toast', handleBeerToast);
       socket.off('tables-merged', handleTablesMerged);
       socket.off('tournament-finished', handleFinished);
@@ -250,6 +270,7 @@ export default function DashboardPage() {
       await apiClient.post(`/api/tournaments/${activeTournament.id}/merge`, {
         removeTableId: mergeSuggestion.removeTable.id,
       });
+      setMergeDismissedTableId(null);
     } catch (err: any) {
       setNotification(`Merge failed: ${err.message}`);
     }
@@ -282,6 +303,7 @@ export default function DashboardPage() {
     if (!activeTournament) return new Map<string, 1 | 2 | 3>();
     return computeChipLeaders(activeTournament.players);
   }, [activeTournament]);
+  const mergeSuggestion = useMemo(() => computeMergeSuggestion(activeTournament), [activeTournament]);
 
   if (loading) {
     return (
@@ -323,11 +345,11 @@ export default function DashboardPage() {
         />
       )}
 
-      {mergeSuggestion && player?.isAdmin && (
+      {mergeSuggestion && player?.isAdmin && mergeDismissedTableId !== mergeSuggestion.removeTable.id && (
         <MergeBanner
           suggestion={mergeSuggestion}
           onAccept={handleMerge}
-          onDismiss={() => setMergeSuggestion(null)}
+          onDismiss={() => setMergeDismissedTableId(mergeSuggestion.removeTable.id)}
         />
       )}
 
