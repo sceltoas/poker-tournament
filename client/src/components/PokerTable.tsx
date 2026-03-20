@@ -1,5 +1,5 @@
 import { useState, useRef } from 'react';
-import { TournamentTable, TournamentPlayer } from '../types';
+import { TournamentTable, TournamentPlayer, ChipDenomination, DEFAULT_CHIP_DENOMINATIONS } from '../types';
 import { X, RotateCcw } from 'lucide-react';
 import { useFolk } from '../hooks/useFolk';
 import { formatChipCount } from './ChipInputModal';
@@ -11,11 +11,75 @@ interface Props {
   maxSeats?: number;
   onlinePlayers?: Set<string>;
   chipLeaders?: Map<string, 1 | 2 | 3>;
+  chipDenominations?: ChipDenomination[] | null;
   onEliminate: (playerId: string) => void;
   onReinstate?: (playerId: string) => void;
   onSwap?: (playerId1: string, playerId2: string) => void;
   onMove?: (playerId: string, toTableId: string, toSeat: number) => void;
   onChipClick?: (playerId: string) => void;
+}
+
+// Total visual chips across all columns
+const TOTAL_VISUAL_CHIPS = 20;
+const MAX_CHIPS_PER_COLUMN = 6;
+
+// Distribute visual chips evenly across denominations based on value share
+function chipColumns(total: number, denoms: ChipDenomination[]): { color: string; discs: number }[] {
+  // Greedy breakdown to know which denominations are used
+  const sorted = [...denoms].sort((a, b) => b.value - a.value);
+  const used: { color: string; value: number; count: number }[] = [];
+  let remaining = total;
+  for (const d of sorted) {
+    if (remaining <= 0) break;
+    const count = Math.floor(remaining / d.value);
+    if (count > 0) {
+      used.push({ color: d.color, value: d.value, count });
+      remaining -= count * d.value;
+    }
+  }
+  if (used.length === 0) return [];
+
+  // Calculate each denomination's share of total value
+  const totalValue = used.reduce((s, u) => s + u.value * u.count, 0);
+
+  // Distribute TOTAL_VISUAL_CHIPS proportionally by value share
+  let chipsLeft = TOTAL_VISUAL_CHIPS;
+  const columns = used.map((u, i) => {
+    const share = (u.value * u.count) / totalValue;
+    // Last column gets whatever remains to avoid rounding issues
+    const discs = i === used.length - 1
+      ? chipsLeft
+      : Math.max(1, Math.min(MAX_CHIPS_PER_COLUMN, Math.round(share * TOTAL_VISUAL_CHIPS)));
+    chipsLeft -= discs;
+    return { color: u.color, discs: Math.max(1, Math.min(MAX_CHIPS_PER_COLUMN, discs)) };
+  });
+
+  return columns;
+}
+
+// Render chip columns side by side, each column is one color stacked vertically
+function ChipStackVisual({ chipStack, denominations }: { chipStack: number; denominations: ChipDenomination[] }) {
+  const columns = chipColumns(chipStack, denominations);
+  if (columns.length === 0) return null;
+
+  return (
+    <div className="chip-stack-visual">
+      {columns.map((col, ci) => (
+        <div key={ci} className="chip-column">
+          {Array.from({ length: col.discs }, (_, di) => (
+            <div
+              key={di}
+              className="chip-disc"
+              style={{
+                background: col.color,
+                borderColor: col.color === '#ffffff' ? '#999' : 'rgba(0,0,0,0.35)',
+              }}
+            />
+          ))}
+        </div>
+      ))}
+    </div>
+  );
 }
 
 // Positions for seats around an oval table (up to 12 seats)
@@ -44,6 +108,7 @@ function PlayerSeat({
   isOnline,
   leaderRank,
   avatarUrl,
+  chipDenominations,
   onEliminate,
   onReinstate,
   onSwap,
@@ -56,6 +121,7 @@ function PlayerSeat({
   isOnline: boolean;
   leaderRank?: 1 | 2 | 3;
   avatarUrl?: string;
+  chipDenominations: ChipDenomination[];
   onEliminate: (playerId: string) => void;
   onReinstate?: (playerId: string) => void;
   onSwap?: (playerId1: string, playerId2: string) => void;
@@ -122,12 +188,17 @@ function PlayerSeat({
       {!isEliminated && <span className={`online-dot ${isOnline ? 'online' : 'offline'}`} />}
       {leaderRank && <span className="chip-leader-badge">{MEDAL[leaderRank]}</span>}
       {!isEliminated && (
-        <span
-          className={`chip-count ${(isMe || isAdmin) && onChipClick ? 'clickable' : ''}`}
+        <div
+          className={`chip-area ${(isMe || isAdmin) && onChipClick ? 'clickable' : ''}`}
           onClick={(e) => { if ((isMe || isAdmin) && onChipClick) { e.stopPropagation(); onChipClick(tp.playerId); } }}
         >
-          {tp.chipStack != null && tp.chipStack > 0 ? formatChipCount(tp.chipStack) : (isMe || isAdmin) ? '💰' : ''}
-        </span>
+          {tp.chipStack != null && tp.chipStack > 0 && (
+            <ChipStackVisual chipStack={tp.chipStack} denominations={chipDenominations} />
+          )}
+          <span className="chip-count-label">
+            {tp.chipStack != null && tp.chipStack > 0 ? formatChipCount(tp.chipStack) : (isMe || isAdmin) ? '💰' : ''}
+          </span>
+        </div>
       )}
 
       {!isEliminated && (isAdmin || isMe) && (
@@ -211,10 +282,11 @@ function EmptySeat({ position, tableId, seatNumber, onMove }: {
   );
 }
 
-export default function PokerTable({ table, currentPlayerId, isAdmin, maxSeats = 8, onlinePlayers, chipLeaders, onEliminate, onReinstate, onSwap, onMove, onChipClick }: Props) {
+export default function PokerTable({ table, currentPlayerId, isAdmin, maxSeats = 8, onlinePlayers, chipLeaders, chipDenominations, onEliminate, onReinstate, onSwap, onMove, onChipClick }: Props) {
   const activePlayers = table.players.filter((p) => p.status !== 'ELIMINATED');
   const getAvatar = useFolk();
   const seatCount = Math.min(maxSeats, SEAT_POSITIONS.length);
+  const denoms = chipDenominations && chipDenominations.length > 0 ? chipDenominations : DEFAULT_CHIP_DENOMINATIONS;
 
   return (
     <div className="poker-table-wrapper">
@@ -242,6 +314,7 @@ export default function PokerTable({ table, currentPlayerId, isAdmin, maxSeats =
                 isOnline={onlinePlayers?.has(tp.playerId) || false}
                 leaderRank={chipLeaders?.get(tp.playerId)}
                 avatarUrl={getAvatar(tp.player.name)}
+                chipDenominations={denoms}
                 onEliminate={onEliminate}
                 onReinstate={onReinstate}
                 onSwap={onSwap}

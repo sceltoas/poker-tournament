@@ -395,6 +395,7 @@ export default function DashboardPage() {
                 maxSeats={activeTournament?.maxSeatsPerTable}
                 onlinePlayers={onlinePlayers}
                 chipLeaders={chipLeaders}
+                chipDenominations={activeTournament?.chipDenominations}
                 onEliminate={handleEliminate}
                 onReinstate={player?.isAdmin ? handleReinstate : undefined}
                 onSwap={player?.isAdmin ? handleSwap : undefined}
